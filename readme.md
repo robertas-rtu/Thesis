@@ -14,12 +14,21 @@ This system consists of:
 
 ![System Wiring Diagram](system_wiring_diagram.png)
 
-The diagram shows the complete hardware setup including:
-- Raspberry Pi 5 as the main controller
-- Raspberry Pi Pico W with connected sensors (SCD41 and BMP280)
-- Servo motor for ventilation control
-- Two cooling fans controlled via relay modules
-- All necessary connections and power distribution
+## Pin Connections:
+
+**Raspberry Pi 5:**
+- SCD41: 3.3V(1), GND(6), SDA(3), SCL(5)  
+- BMP280: 3.3V(17), GND(20), SDA(38), SCL(40)
+
+**Raspberry Pi Pico W:**
+- Servo: GP0(1) signal, 5V, GND
+- Relay 1: GP17(22) → IN
+- Relay 2: GP19(25) → IN  
+- Power: VSYS(39) ← 5V, GND(38)
+
+**220V AC:**
+- Relays switch L line to fans
+- N line direct to fans
 
 ## Prerequisites
 
