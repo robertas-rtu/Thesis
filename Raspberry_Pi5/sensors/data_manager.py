@@ -1,5 +1,5 @@
 # sensors/data_manager.py
-"""Management of sensor data storage and retrieval."""
+"""Sensor data management."""
 import os
 import json
 import logging
@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 class DataManager:
     def __init__(self, csv_dir="data/csv"):
-        """Initialize the data manager with default values."""
         self.latest_data = {
             "timestamp": None,
             "scd41": {"co2": None, "temperature": None, "humidity": None},
@@ -26,7 +25,6 @@ class DataManager:
         os.makedirs(csv_dir, exist_ok=True)
     
     def update_sensor_data(self, scd41_data, bmp280_data):
-        """Update sensor data with new readings."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         self.latest_data.update({
@@ -48,7 +46,6 @@ class DataManager:
         return self.latest_data
     
     def update_room_data(self, occupants=None, ventilated=None, ventilation_speed=None):
-        """Update room occupancy and ventilation status."""
         if occupants is not None:
             self.latest_data["room"]["occupants"] = occupants
         if ventilated is not None:
@@ -58,7 +55,6 @@ class DataManager:
         return self.latest_data["room"]
     
     def update_init_status(self, start_time, completed_measurements):
-        """Update initialization status."""
         current_time = datetime.now().timestamp()
         elapsed = int(current_time - start_time)
         time_remaining = max(600 - elapsed, 0)
@@ -73,7 +69,6 @@ class DataManager:
         return self.latest_data["initialization"]
     
     def save_measurement_to_csv(self, ventilation_status, ventilation_speed="off"):
-        """Save current measurement to CSV file."""
         today = datetime.now().strftime("%Y%m%d")
         filename = os.path.join(self.csv_dir, f"{today}.csv")
         file_exists = os.path.isfile(filename)

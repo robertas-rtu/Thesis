@@ -62,7 +62,7 @@ class PicoManager:
                     logger.error(f"Invalid ventilation speed: {speed}")
                     return False
                 response = requests.get(f"{pico_url}/vent/{speed}")
-            else:  # 'off' state
+            else:
                 response = requests.get(f"{pico_url}/vent/off")
                 
             if response.status_code == 200:

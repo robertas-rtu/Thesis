@@ -14,12 +14,7 @@ class OccupancyHistoryManager:
     """Records and retrieves occupancy state changes for analysis and reporting."""
 
     def __init__(self, data_dir: str = "data"):
-        """
-        Initialize the occupancy history manager.
-
-        Args:
-            data_dir: Legacy parameter maintained for compatibility
-        """
+        """Initialize the occupancy history manager."""
         self.data_dir = data_dir
         self.csv_file = OCCUPANCY_HISTORY_FILE
         
@@ -42,14 +37,7 @@ class OccupancyHistoryManager:
                 logger.error(f"Error creating occupancy history CSV file: {e}")
 
     def record_occupancy_change(self, status: str, people_count: int, timestamp: datetime = None):
-        """
-        Log an occupancy state transition.
-
-        Args:
-            status: Current state ('EMPTY' or 'OCCUPIED')
-            people_count: Number of detected occupants
-            timestamp: Event time (defaults to current time)
-        """
+        """Log an occupancy state transition."""
         if status not in ['EMPTY', 'OCCUPIED']:
             logger.error(f"Invalid occupancy status: {status}")
             return
@@ -70,15 +58,7 @@ class OccupancyHistoryManager:
             logger.error(f"Error recording occupancy change: {e}")
 
     def get_history(self, days: int = 30):
-        """
-        Retrieve occupancy records for the specified time period.
-
-        Args:
-            days: History window in days
-            
-        Returns:
-            list: Chronological occupancy records within the time window
-        """
+        """Retrieve occupancy records for the specified time period."""
         try:
             records = []
             cutoff_date = datetime.now() - timedelta(days=days)

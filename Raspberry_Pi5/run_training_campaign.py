@@ -123,7 +123,7 @@ def main():
             name=f"Markov Training Session {session_num}",
             strategy=ControlStrategy.MARKOV,
             duration_days=args.duration,
-            description=f"Training Markov controller for {args.duration} days (Session {session_num})"
+            description=f"Training Markov controller for {args.duration} days"
         )
         
         # Run training simulation
@@ -133,11 +133,9 @@ def main():
         # Copy trained model to evaluation directory
         source_model_path = os.path.join(session_dir, "sim_data", "markov", "markov_model.json")
         if os.path.exists(source_model_path):
-            # Create session-specific directory in evaluation folder
             eval_session_dir = os.path.join(eval_dir, f"run_{session_num}")
             os.makedirs(eval_session_dir, exist_ok=True)
             
-            # Copy the model
             target_model_path = os.path.join(eval_session_dir, "markov_model.json")
             shutil.copy2(source_model_path, target_model_path)
             

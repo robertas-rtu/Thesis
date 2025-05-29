@@ -1,7 +1,4 @@
-"""
-Occupancy pattern analyzer for smart ventilation system.
-Uses historical data to predict when spaces are likely to be occupied or empty.
-"""
+# Occupancy pattern analyzer
 import os
 import json
 import pandas as pd
@@ -14,21 +11,9 @@ from collections import defaultdict
 logger = logging.getLogger(__name__)
 
 class OccupancyPatternAnalyzer:
-    """
-    Analyzes occupancy patterns and provides probability-based predictions.
-    
-    Processes historical occupancy data to build time-based probability models,
-    with special weighting for user-confirmed feedback. Enables smart ventilation
-    decisions based on predicted occupancy states.
-    """
+    # Analyzes occupancy patterns and provides probability-based predictions
     
     def __init__(self, occupancy_history_file: str):
-        """
-        Initialize the occupancy pattern analyzer.
-        
-        Args:
-            occupancy_history_file: Path to CSV file containing occupancy history
-        """
         self.history_file = occupancy_history_file
         self.probabilities_file = os.path.join(
             os.path.dirname(occupancy_history_file), 
@@ -44,12 +29,7 @@ class OccupancyPatternAnalyzer:
         self._load_probabilities()
     
     def _load_probabilities(self):
-        """
-        Load previously calculated probabilities from JSON file.
-        
-        Restores the probability model from persistent storage to avoid
-        recalculating on each restart.
-        """
+        # Load previously calculated probabilities from JSON file
         if os.path.exists(self.probabilities_file):
             try:
                 with open(self.probabilities_file, 'r') as f:
@@ -68,11 +48,7 @@ class OccupancyPatternAnalyzer:
                 logger.error(f"Error loading probabilities: {e}")
     
     def _save_probabilities(self):
-        """
-        Persist probability model to JSON file.
-        
-        Converts tuple keys to string format for JSON serialization.
-        """
+        # Save probability model to JSON file
         try:
             # Convert tuple keys to strings for JSON serialization
             data = {
@@ -93,12 +69,7 @@ class OccupancyPatternAnalyzer:
             logger.error(f"Error saving probabilities: {e}")
     
     def _load_and_process_history(self):
-        """
-        Process historical occupancy data to build probability model.
-        
-        Prioritizes user feedback over automatically detected states and applies
-        appropriate weighting to generate reliable probability estimates.
-        """
+        # Process historical occupancy data to build probability model
         try:
             # Check file existence
             if not os.path.exists(self.history_file):
@@ -192,15 +163,6 @@ class OccupancyPatternAnalyzer:
             logger.error(f"Error processing history: {e}")
     
     def get_predicted_empty_probability(self, target_datetime: datetime) -> float:
-        """
-        Calculate probability that a space will be empty at a specific time.
-        
-        Args:
-            target_datetime: The datetime to predict for
-            
-        Returns:
-            float: Probability of being empty (0.0-1.0)
-        """
         # Reload data if necessary
         if self._should_reload_history():
             self._load_and_process_history()
@@ -215,21 +177,7 @@ class OccupancyPatternAnalyzer:
         return probability
     
     def get_next_significant_event(self, current_datetime: datetime = None) -> Tuple[Optional[datetime], Optional[str], float]:
-        """
-        Find the next expected arrival or departure event.
-        
-        Analyzes probability transitions to identify when occupancy state is
-        likely to change significantly.
-        
-        Args:
-            current_datetime: Starting time for prediction (default: now)
-            
-        Returns:
-            Tuple containing:
-                - Time of next significant event (or None)
-                - Event type ("EXPECTED_ARRIVAL" or "EXPECTED_DEPARTURE")
-                - Confidence level (0.0-1.0)
-        """
+        # Find the next expected arrival or departure event
         if self._should_reload_history():
             self._load_and_process_history()
         
@@ -289,19 +237,7 @@ class OccupancyPatternAnalyzer:
         return None, None, 0.0
     
     def get_predicted_current_period(self, current_datetime: datetime = None) -> Tuple[Optional[datetime], Optional[datetime], Optional[str], float]:
-        """
-        Analyze the current occupancy period including when it started and when it will end.
-        
-        Args:
-            current_datetime: Reference time (default: now)
-            
-        Returns:
-            Tuple containing:
-                - Period start datetime
-                - Expected period end datetime
-                - Current status ("EXPECTED_EMPTY" or "EXPECTED_OCCUPIED")
-                - Confidence level (0.0-1.0)
-        """
+        # Analyze the current occupancy period
         if self._should_reload_history():
             self._load_and_process_history()
         
@@ -368,16 +304,7 @@ class OccupancyPatternAnalyzer:
         return period_start, period_end, current_state, confidence
     
     def record_user_feedback(self, feedback_timestamp: datetime, actual_status: str):
-        """
-        Incorporate user feedback to improve future predictions.
-        
-        User feedback is considered high-value data and is given extra weight
-        when calculating probabilities.
-        
-        Args:
-            feedback_timestamp: When the feedback applies to
-            actual_status: "USER_CONFIRMED_HOME" or "USER_CONFIRMED_AWAY"
-        """
+        # Incorporate user feedback to improve future predictions
         if actual_status not in ["USER_CONFIRMED_HOME", "USER_CONFIRMED_AWAY"]:
             logger.error(f"Invalid feedback status: {actual_status}")
             return
@@ -421,13 +348,7 @@ class OccupancyPatternAnalyzer:
         self._save_feedback_to_csv(feedback_timestamp, actual_status)
     
     def _save_feedback_to_csv(self, feedback_timestamp: datetime, actual_status: str):
-        """
-        Save user feedback to history CSV for long-term storage.
-        
-        Args:
-            feedback_timestamp: Time of the feedback
-            actual_status: "USER_CONFIRMED_HOME" or "USER_CONFIRMED_AWAY"
-        """
+        # Save user feedback to history CSV
         try:
             feedback_row = {
                 'timestamp': feedback_timestamp.isoformat(),
@@ -451,15 +372,7 @@ class OccupancyPatternAnalyzer:
             logger.error(f"Error saving feedback to CSV: {e}")
     
     def get_next_expected_return_time(self, current_datetime: datetime) -> Optional[datetime]:
-        """
-        Predict when occupants are expected to return to an empty space.
-        
-        Args:
-            current_datetime: Reference time
-            
-        Returns:
-            datetime or None: Expected return time, or None if undetermined
-        """
+        # Predict when occupants are expected to return
         next_event = self.get_next_significant_event(current_datetime)
         
         if next_event[0] and next_event[1] == "EXPECTED_ARRIVAL":
@@ -470,15 +383,7 @@ class OccupancyPatternAnalyzer:
         return None
     
     def get_next_expected_departure_time(self, current_datetime: datetime) -> Optional[datetime]:
-        """
-        Predict when occupants are expected to leave an occupied space.
-        
-        Args:
-            current_datetime: Reference time
-            
-        Returns:
-            datetime or None: Expected departure time, or None if undetermined
-        """
+        # Predict when occupants are expected to leave
         next_event = self.get_next_significant_event(current_datetime)
         
         if next_event[0] and next_event[1] == "EXPECTED_DEPARTURE":
@@ -489,17 +394,7 @@ class OccupancyPatternAnalyzer:
         return None
     
     def get_expected_empty_duration(self, current_datetime: datetime) -> Optional[timedelta]:
-        """
-        Estimate how long a space will remain empty.
-        
-        Useful for determining if ventilation can be reduced for an extended period.
-        
-        Args:
-            current_datetime: Reference time
-            
-        Returns:
-            timedelta or None: Expected duration of emptiness, or None if undetermined
-        """
+        # Estimate how long a space will remain empty
         return_time = self.get_next_expected_return_time(current_datetime)
         
         if return_time:
@@ -511,15 +406,7 @@ class OccupancyPatternAnalyzer:
         return None
     
     def _should_reload_history(self) -> bool:
-        """
-        Determine if historical data needs to be reprocessed.
-        
-        Prevents unnecessary processing by checking file modification time
-        and enforcing minimum intervals between updates.
-        
-        Returns:
-            bool: True if reload is needed, False otherwise
-        """
+        # Determine if historical data needs to be reprocessed
         # First-time load
         if self.last_load_time is None:
             return True
@@ -544,17 +431,7 @@ class OccupancyPatternAnalyzer:
         return False
     
     def update_patterns(self, force: bool = True) -> bool:
-        """
-        Trigger a manual update of occupancy patterns.
-        
-        Typically called periodically by the system scheduler.
-        
-        Args:
-            force: Whether to bypass time-based update restrictions
-            
-        Returns:
-            bool: True if patterns were updated, False otherwise
-        """
+        # Trigger a manual update of occupancy patterns
         if force or self._should_reload_history():
             logger.info("Performing scheduled update of occupancy patterns")
             self._load_and_process_history()
@@ -562,15 +439,7 @@ class OccupancyPatternAnalyzer:
         return False
     
     def get_pattern_summary(self) -> Dict[str, Any]:
-        """
-        Generate a human-readable summary of occupancy patterns.
-        
-        Provides an overview of when spaces are typically occupied or empty,
-        organized by day of week.
-        
-        Returns:
-            Dict containing pattern summary data
-        """
+        # Generate a summary of occupancy patterns
         if self._should_reload_history():
             self._load_and_process_history()
         

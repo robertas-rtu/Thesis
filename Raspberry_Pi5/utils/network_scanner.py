@@ -12,15 +12,7 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 def scan_network(target_ip: Optional[str] = None):
-    """
-    Scan local network for connected devices using arp-scan.
-    
-    Args:
-        target_ip: Optional specific IP to scan, scans entire subnet if None
-        
-    Returns:
-        list: Discovered devices as (mac, ip, vendor) tuples
-    """
+    """Scan local network for connected devices using arp-scan."""
     devices = {}  # Using dictionary to deduplicate by MAC
 
     try:
@@ -96,12 +88,7 @@ async def scan_network_async(target_ip: Optional[str] = None):
 
 
 def fallback_scan():
-    """
-    Read device information directly from system ARP table when arp-scan fails.
-    
-    Returns:
-        list: Discovered devices from ARP table as (mac, ip, "Unknown") tuples
-    """
+    """Read device information directly from system ARP table when arp-scan fails."""
     try:
         logger.info("Using fallback to ARP table")
         with open('/proc/net/arp', 'r') as f:
@@ -122,17 +109,8 @@ def fallback_scan():
         return []
 
 def check_arp_table(mac_address):
-    """
-    Check if a device is in the ARP table.
-    
-    Args:
-        mac_address: MAC address to check
-        
-    Returns:
-        bool: True if device is in ARP table, False otherwise
-    """
+    """Check if a device is in the ARP table."""
     try:
-        # Normalize MAC format for comparison
         mac = mac_address.lower().replace('-', ':')
         
         # First check /proc/net/arp file
@@ -166,17 +144,7 @@ def check_arp_table(mac_address):
         return False
 
 def ping_device(ip_address, count=1, timeout=1):
-    """
-    Test network connectivity to a device via ICMP ping.
-    
-    Args:
-        ip_address: IP address to ping
-        count: Number of ping packets to send
-        timeout: Timeout for each ping in seconds
-        
-    Returns:
-        bool: True if device responds, False otherwise
-    """
+    """Test network connectivity to a device via ICMP ping."""
     try:
         result = subprocess.run(
             ["ping", "-c", str(count), "-W", str(timeout), ip_address],
@@ -194,17 +162,7 @@ def ping_device(ip_address, count=1, timeout=1):
         return False
 
 def check_device_presence(mac_address, ip_address=None, methods=None):
-    """
-    Determine if a specific device is present on the network using multiple detection methods.
-    
-    Args:
-        mac_address: MAC address to check
-        ip_address: IP address if known, otherwise will attempt to discover
-        methods: List of methods to try ['arp_scan', 'arp_table', 'ping']
-        
-    Returns:
-        tuple: (is_present, detection_method, additional_info)
-    """
+    """Determine if a specific device is present on the network using multiple detection methods."""
     methods = methods or ['arp_scan', 'arp_table', 'ping']
     mac_address = mac_address.lower()
     
@@ -243,16 +201,7 @@ def check_device_presence(mac_address, ip_address=None, methods=None):
     return (False, None, None)
 
 def guess_device_type(mac, vendor):
-    """
-    Classify device type based on manufacturer information.
-    
-    Args:
-        mac: MAC address
-        vendor: Vendor string from network scan
-    
-    Returns:
-        str: Device classification (phone, laptop, tablet, tv, iot_device, unknown)
-    """
+    """Classify device type based on manufacturer information."""
     mac = mac.lower()
     vendor = vendor.lower()
 
@@ -304,15 +253,7 @@ def guess_device_type(mac, vendor):
     return 'unknown'
 
 def get_vendor_confidence_score(vendor):
-    """
-    Determine the likelihood that a device is a personal mobile device.
-    
-    Args:
-        vendor: Vendor string from network scan
-    
-    Returns:
-        float: Confidence score between 0 and 1
-    """
+    """Determine the likelihood that a device is a personal mobile device."""
     vendor = vendor.lower()
     
     # High confidence phone manufacturers

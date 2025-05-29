@@ -42,7 +42,6 @@ def setup_logging(output_dir, console_level=logging.ERROR):
     console_handler.setLevel(console_level)
     console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
     
-    # Get the root logger and add our custom handler
     root_logger = logging.getLogger()
     root_logger.addHandler(console_handler)
 
@@ -128,7 +127,7 @@ def main():
     # Set up logging with higher threshold for console output
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join(args.output_dir, timestamp)
-    setup_logging(output_dir, console_level=logging.ERROR)  # Only show ERROR and CRITICAL in console
+    setup_logging(output_dir, console_level=logging.ERROR)
     
     logging.info("Starting ventilation simulation")
     logging.info(f"Output directory: {output_dir}")
@@ -141,14 +140,13 @@ def main():
             logging.info(f"Loaded configuration from {args.config}")
     else:
         # Use default configuration
-        default_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
-                                          "simulation", "config.json")
+        default_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "simulation", "config.json")
         if os.path.exists(default_config_path):
             config = load_config(default_config_path)
             if config:
                 logging.info(f"Loaded default configuration from {default_config_path}")
         else:
-            config = {}  # Empty config if no file exists
+            config = {}
 
     # If compare-only mode is active
     if args.compare_only:
@@ -229,18 +227,17 @@ def main():
     
     # Set Markov parameters based on mode
     if args.training_mode:
-        sim.markov_explore_rate = 0.5  # Higher for training
-        sim.markov_learning_rate = 0.3  # Higher for training
+        sim.markov_explore_rate = 0.5
+        sim.markov_learning_rate = 0.3
     else:
-        sim.markov_explore_rate = 0.0  # Lower for evaluation
-        sim.markov_learning_rate = 0.0  # Lower for evaluation
+        sim.markov_explore_rate = 0.0
+        sim.markov_learning_rate = 0.0
 
     # Patch the Simulation.run_experiment method to use tqdm
     original_run_experiment = sim.run_experiment
     
     def run_experiment_with_progress(experiment=None):
         """Patched version of run_experiment that uses tqdm for progress"""
-        # Select experiment to run (same as original method)
         if experiment is None:
             if sim.current_experiment is None:
                 raise ValueError("No experiment configured. Call setup_experiment first.")
@@ -263,7 +260,7 @@ def main():
         sim.environment.current_time = start_date
         sim.occupants = OccupantBehaviorModel(
             start_date=start_date,
-            num_residents=2  # Fixed for this simulation
+            num_residents=2
         )
         
         # Set up ventilation strategy
@@ -324,7 +321,7 @@ def main():
             sim._generate_plots(experiment)
             
             print(f"Completed: {experiment['name']}")
-            print(f"Energy consumption: {results['energy_consumption']:.2f} kWh, Avg CO2: {results['avg_co2']:.1f} ppm")
+            print(f"Energy: {results['energy_consumption']:.2f} kWh, Avg CO2: {results['avg_co2']:.1f} ppm")
             
             return results
                 
@@ -341,10 +338,7 @@ def main():
     original_compare = sim.compare_strategies_with_shared_behavior
     
     def compare_strategies_with_progress(strategies, duration_days=7.0, output_dir=None):
-        """
-        Run multiple experiments with different strategies but identical occupant behavior.
-        Modified to include progress bars for each experiment.
-        """
+        """Run multiple experiments with different strategies but identical occupant behavior."""
         from simulation.occupants import ActivityType
         
         if output_dir:
@@ -353,7 +347,6 @@ def main():
         
         # Create shared occupant behavior for all experiments
         start_date = sim.initial_date or datetime(2023, 1, 1, 0, 0, 0)
-        # Use the proper import here
         shared_occupant_model = OccupantBehaviorModel(start_date=start_date, num_residents=2)
         
         # Store original occupants model to restore later
@@ -455,7 +448,7 @@ def main():
                 sim._generate_plots(experiment)
                 
                 print(f"Completed: {strategy.name}")
-                print(f"Energy consumption: {result['energy_consumption']:.2f} kWh, Avg CO2: {result['avg_co2']:.1f} ppm")
+                print(f"Energy: {result['energy_consumption']:.2f} kWh, Avg CO2: {result['avg_co2']:.1f} ppm")
                 
             except Exception as e:
                 logging.error(f"Error during experiment: {e}", exc_info=True)
@@ -504,7 +497,7 @@ def main():
                 strategies_to_compare.append(strategy_mapping[strategy_name][0])
         
         if not REAL_COMPONENTS_AVAILABLE and ControlStrategy.PREDICTIVE in strategies_to_compare:
-            logging.warning("Predictive strategy requested for fair comparison but real components not available. Skipping Predictive.")
+            logging.warning("Predictive strategy requested but real components not available. Skipping Predictive.")
             strategies_to_compare = [s for s in strategies_to_compare if s != ControlStrategy.PREDICTIVE]
 
         # Run with shared behavior
@@ -515,7 +508,6 @@ def main():
             logging.warning("No valid strategies selected for fair comparison.")
 
     else:
-        # Original code for running individual experiments
         for strategy, name in strategies_to_run:
             # Get strategy-specific configuration
             strategy_config = config.get(strategy.name.lower(), {}) if config else {}
@@ -548,7 +540,7 @@ def main():
             # Run experiment
             sim.run_experiment(experiment)
     
-    # Compare results if multiple experiments were run (and not in fair compare mode, as that handles its own comparison)
+    # Compare results if multiple experiments were run
     if len(strategies_to_run) > 1 and not args.compare_fair:
         experiment_ids_to_compare = [exp['id'] for exp in sim.experiments if exp['name'] in [s[1] for s in strategies_to_run]]
         if experiment_ids_to_compare:

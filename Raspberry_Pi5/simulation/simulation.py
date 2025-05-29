@@ -1,8 +1,5 @@
 # simulation/simulation.py
-"""
-Main simulation coordinator for adaptive ventilation system.
-Integrates environment, occupants, and ventilation components to run experiments.
-"""
+"""Main simulation coordinator."""
 import os
 import json
 import logging
@@ -21,7 +18,6 @@ from simulation.environment import EnvironmentSimulator
 from simulation.occupants import OccupantBehaviorModel
 from simulation.ventilation import VentilationSystem, ControlStrategy, VentilationMode, VentilationSpeed
 
-# Try to import actual system components for integration
 try:
     from control.markov_controller import MarkovController
     from predictive.occupancy_pattern_analyzer import OccupancyPatternAnalyzer
@@ -35,27 +31,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 class Simulation:
-    """
-    Main simulation coordinator for the adaptive ventilation system.
-    
-    Brings together environment, occupants, and ventilation components
-    to run comprehensive simulations for comparing different strategies.
-    """
     
     def __init__(self, 
                  output_dir: str = "simulation_results",
                  initial_date: datetime = None,
                  time_step_minutes: int = 5,
                  use_pretrained_markov: bool = True):
-        """
-        Initialize the simulation.
-        
-        Args:
-            output_dir: Directory for storing simulation results
-            initial_date: Starting date for simulation (default: Jan 1, 2023)
-            time_step_minutes: Simulation time step in minutes
-            use_pretrained_markov: Whether to use a pre-trained Markov model
-        """
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         
@@ -63,52 +44,43 @@ class Simulation:
         self.time_step_minutes = time_step_minutes
         self.use_pretrained_markov = use_pretrained_markov
         
-        # Create simulation components
         self.environment = EnvironmentSimulator()
         self.occupants = OccupantBehaviorModel(start_date=self.initial_date)
         self.ventilation = VentilationSystem(self.environment)
         
-        # Simulation control
         self.running = False
         self.current_step = 0
         self.max_steps = 0
         
-        # External components
         self.markov_controller = None
         self.occupancy_analyzer = None
         self.sleep_analyzer = None
         
-        # Markov training parameters (used during setup_real_components)
-        self.markov_explore_rate = 0.1  # Lower for evaluation, higher for training
+        self.markov_explore_rate = 0.1
         self.markov_learning_rate = 0.1
         
-        # Experiment tracking
         self.experiments = []
         self.current_experiment = None
         
-        # Data collection
         self.data_buffer = []
-        self.buffer_max_size = 10000  # Flush to disk when buffer exceeds this size
+        self.buffer_max_size = 10000
         
-        # Mock data manager for integration with real components
         self.mock_data_manager = None
         
         logger.info("Simulation initialized")
     
     def _prepare_for_json(self, obj):
-        """Recursively convert objects to JSON-serializable format."""
         if isinstance(obj, dict):
             return {k: self._prepare_for_json(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [self._prepare_for_json(i) for i in obj]
         elif isinstance(obj, Enum):
-            return obj.value  # Convert Enum to its string value
-        elif hasattr(obj, 'isoformat'):  # Handle datetime objects
+            return obj.value
+        elif hasattr(obj, 'isoformat'):
             return obj.isoformat()
-        # Handle numpy numeric types
-        elif hasattr(obj, 'dtype') and hasattr(obj, 'item'):  # NumPy scalar types
-            return obj.item()  # Convert to native Python type
-        elif str(type(obj)).startswith("<class 'numpy."):  # Fallback for other NumPy types
+        elif hasattr(obj, 'dtype') and hasattr(obj, 'item'):
+            return obj.item()
+        elif str(type(obj)).startswith("<class 'numpy."):
             return obj.tolist() if hasattr(obj, 'tolist') else float(obj)
         else:
             return obj
@@ -120,25 +92,9 @@ class Simulation:
                         initial_co2: float = 400.0,
                         initial_temp: float = 20.0,
                         description: str = None):
-        """
-        Configure a new simulation experiment.
-        
-        Args:
-            name: Experiment identifier
-            strategy: Ventilation control strategy to use
-            duration_days: Duration in days
-            initial_co2: Starting CO2 level in ppm
-            initial_temp: Starting temperature in °C
-            description: Optional experiment description
-            
-        Returns:
-            dict: Experiment configuration
-        """
-        # Calculate total steps
         total_mins = duration_days * 24 * 60
         total_steps = int(total_mins / self.time_step_minutes)
         
-        # Create experiment configuration
         experiment = {
             'id': len(self.experiments) + 1,
             'name': name,
@@ -162,12 +118,10 @@ class Simulation:
         self.experiments.append(experiment)
         self.current_experiment = experiment
         
-        # Create output directory for this experiment
         experiment_dir = os.path.join(self.output_dir, f"experiment_{experiment['id']}")
         os.makedirs(experiment_dir, exist_ok=True)
         experiment['output_dir'] = experiment_dir
         
-        # Create CSV file for results
         csv_path = os.path.join(experiment_dir, "data.csv")
         experiment['csv_path'] = csv_path
         
@@ -179,16 +133,13 @@ class Simulation:
                 'energy_consumption', 'noise_level', 'outdoor_temp', 'step'
             ])
         
-        # Save experiment configuration
         config_path = os.path.join(experiment_dir, "config.json")
         experiment['config_path'] = config_path
         
         with open(config_path, 'w') as f:
-            # Create a copy without circular references
             config_data = experiment.copy()
-            config_data.pop('results', None)  # Remove results field if present
+            config_data.pop('results', None)
             
-            # Convert all Enum values to strings
             config_data = self._prepare_for_json(config_data)
             
             json.dump(config_data, f, indent=2)
@@ -199,19 +150,7 @@ class Simulation:
         return experiment
     
     def _initialize_markov_q_values(self, controller):
-        """
-        Initialize Q-values for Markov controller with sensible defaults.
-        
-        This provides initial guidance to the controller before learning,
-        especially important for states that are rarely encountered.
-        
-        Args:
-            controller: MarkovController instance to initialize
-        """
-        # Create meaningful state-action pairs for common scenarios
-        # Format: state_key: { action: q_value, ... }
         initial_q_values = {
-            # Low CO2, Low Temp scenarios
             "low_low_empty_morning": {
                 "off": 0.9,
                 "low": 0.2,
@@ -261,7 +200,6 @@ class Simulation:
                 "max": 0.05
             },
             
-            # Medium CO2, Medium Temp scenarios
             "medium_medium_empty_morning": {
                 "off": 0.6,
                 "low": 0.8,
@@ -311,7 +249,6 @@ class Simulation:
                 "max": 0.1
             },
             
-            # High CO2, Medium Temp scenarios
             "high_medium_empty_morning": {
                 "off": 0.1,
                 "low": 0.6,
@@ -361,7 +298,6 @@ class Simulation:
                 "max": 0.3
             },
             
-            # High CO2, High Temp scenarios - prioritize max ventilation
             "high_high_occupied_morning": {
                 "off": 0.0,
                 "low": 0.1,
@@ -388,10 +324,8 @@ class Simulation:
             }
         }
         
-        # Add initial Q-values to the controller
         for state_key, action_values in initial_q_values.items():
             for action, q_value in action_values.items():
-                # Add or update Q-value if not already set or is zero
                 if state_key not in controller.q_values:
                     controller.q_values[state_key] = {}
                     
@@ -401,14 +335,7 @@ class Simulation:
         logger.info(f"Initialized Markov controller with {len(initial_q_values)} base state configurations")
     
     def _setup_real_components(self, experiment):
-        """
-        Set up integration with actual system components if available.
-        
-        Args:
-            experiment: Current experiment configuration
-        """
         if REAL_COMPONENTS_AVAILABLE:
-            # Set up mock data manager for real components
             class MockDataManager:
                 def __init__(self, simulation):
                     self.simulation = simulation
@@ -431,43 +358,35 @@ class Simulation:
                     }
                 
                 def update_room_data(self, **kwargs):
-                    """Mock room data update."""
                     for key, value in kwargs.items():
                         self.latest_data["room"][key] = value
                     return self.latest_data["room"]
             
             self.mock_data_manager = MockDataManager(self)
             
-            # Create simulation directory structure
             sim_data_dir = os.path.join(self.output_dir, "sim_data")
             os.makedirs(sim_data_dir, exist_ok=True)
             
-            # Initialize occupancy pattern analyzer if needed
             if experiment['strategy'] in [ControlStrategy.PREDICTIVE.name, ControlStrategy.MARKOV.name]:
-                # Create history file
                 occupancy_history_dir = os.path.join(sim_data_dir, "occupancy_history")
                 os.makedirs(occupancy_history_dir, exist_ok=True)
                 occupancy_history_file = os.path.join(occupancy_history_dir, "occupancy_history.csv")
                 
-                # Create empty file if it doesn't exist
                 if not os.path.exists(occupancy_history_file):
                     with open(occupancy_history_file, 'w', newline='') as f:
                         writer = csv.writer(f)
                         writer.writerow(['timestamp', 'status', 'people_count'])
                 
-                # Initialize OccupancyPatternAnalyzer
                 self.occupancy_analyzer = OccupancyPatternAnalyzer(
                     occupancy_history_file=occupancy_history_file
                 )
                 
                 logger.info("Integrated real OccupancyPatternAnalyzer")
             
-            # Create preference manager for simulation
             preference_dir = os.path.join(sim_data_dir, "preferences")
             os.makedirs(preference_dir, exist_ok=True)
             sim_preference_manager = PreferenceManager(data_dir=preference_dir)
             
-            # Add mock users for testing
             sim_preference_manager.set_user_preference(
                 user_id=1, 
                 username="SimUser1",
@@ -483,9 +402,7 @@ class Simulation:
                 co2_threshold=950
             )
             
-            # Only initialize components if using Markov strategy
             if experiment['strategy'] == ControlStrategy.MARKOV.name:
-                # Create a real MarkovController
                 try:
                     class MockPicoManager:
                         def __init__(self, ventilation_system):

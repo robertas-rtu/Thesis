@@ -1,4 +1,3 @@
-# bot/handlers/messages.py
 """Message handlers for the bot."""
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -6,7 +5,6 @@ from telegram.ext import MessageHandler, ContextTypes, filters
 
 logger = logging.getLogger(__name__)
 
-# Context for night mode settings
 night_mode_context = {}
 
 async def echo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -16,7 +14,6 @@ async def echo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_auth = context.application.bot_data["user_auth"]
     
-    # Check if first user
     first_user = user_auth.process_first_user_if_needed(user_id)
     
     if first_user:
@@ -26,7 +23,6 @@ async def echo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"First user {user_id} registered from message")
         return
         
-    # Handle add user mode
     if user_auth.is_adding_user_mode():
         if not user_auth.is_trusted(user_id):
             user_auth.add_trusted_user(user_id)
@@ -39,12 +35,10 @@ async def echo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"New user {user_id} added as trusted")
             return
     
-    # Ignore untrusted users
     if not user_auth.is_trusted(user_id):
         logger.warning(f"Ignored message from untrusted user {user_id}")
         return
     
-    # Handle night mode settings
     if user_id in night_mode_context:
         context_data = night_mode_context[user_id]
         controller = context.application.bot_data.get("controller")
@@ -89,7 +83,6 @@ async def echo_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ Please enter a number between 0 and 23.")
             return
     
-    # Echo for trusted users
     await update.message.reply_text(f"You said: {text}")
     logger.debug(f"Echo message from trusted user {user_id}: {text}")
 

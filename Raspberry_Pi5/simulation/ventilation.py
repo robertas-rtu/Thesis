@@ -34,19 +34,10 @@ class ControlStrategy(Enum):
     PREDICTIVE = auto()  # Using occupancy prediction
 
 class VentilationSystem:
-    """
-    Simulates ventilation hardware and control strategies.
-    Allows comparison between different control approaches.
-    """
+    """Simulates ventilation hardware and control strategies."""
     
     def __init__(self, environment_simulator, strategy=ControlStrategy.THRESHOLD):
-        """
-        Initialize the ventilation system simulator.
-        
-        Args:
-            environment_simulator: Reference to environment simulator
-            strategy: Control strategy to use
-        """
+        """Initialize the ventilation system simulator."""
         self.environment = environment_simulator
         
         # Initial state
@@ -140,12 +131,7 @@ class VentilationSystem:
             self.operation_history = self.operation_history[-5000:]
     
     def _update_energy_consumption(self, time_step_minutes):
-        """
-        Calculate and update energy consumption based on operation mode.
-        
-        Args:
-            time_step_minutes: Time step in minutes
-        """
+        """Calculate and update energy consumption based on operation mode."""
         # Only mechanical ventilation consumes electricity
         if self.mode == VentilationMode.MECHANICAL:
             hours = time_step_minutes / 60.0
@@ -173,11 +159,7 @@ class VentilationSystem:
             logger.debug(f"Constant strategy: ventilation set to {constant_speed.value}")
     
     def _apply_threshold_strategy(self, sensor_data, occupancy_data, time_step_minutes):
-        """
-        Apply CO2 threshold-based ventilation strategy.
-        
-        This is a common basic strategy that responds to measured CO2 levels.
-        """
+        """Apply CO2 threshold-based ventilation strategy."""
         params = self.parameters['threshold_strategy']
         co2 = sensor_data['scd41']['co2']
         
@@ -210,12 +192,7 @@ class VentilationSystem:
                         f"ventilation OFF")
     
     def _apply_scheduled_strategy(self, sensor_data, occupancy_data, time_step_minutes):
-        """
-        Apply time-based scheduled ventilation strategy.
-        
-        This strategy operates ventilation based on time of day, regardless of conditions.
-        Uses specific time windows with minute precision.
-        """
+        """Apply time-based scheduled ventilation strategy."""
         current_time = self.environment.current_time
         current_hour = current_time.hour
         current_minute = current_time.minute
@@ -263,15 +240,10 @@ class VentilationSystem:
                 logger.debug(f"Scheduled strategy: ventilation OFF (no active schedule)")
     
     def _apply_interval_strategy(self, sensor_data, occupancy_data, time_step_minutes):
-        """
-        Apply regular interval ventilation strategy.
-        
-        Runs ventilation for 10 minutes every 60 minutes throughout the day.
-        """
+        """Apply regular interval ventilation strategy."""
         current_time = self.environment.current_time
         current_minute = current_time.minute
         
-        # Every 60 minutes, run for 10 minutes (e.g., at minute 0 of the hour)
         is_ventilation_time = current_minute < self.parameters['interval_strategy']['duration_minutes']
         
         if is_ventilation_time:
@@ -290,31 +262,11 @@ class VentilationSystem:
 
     def _apply_markov_strategy(self, sensor_data, occupancy_data, time_step_minutes, 
                               markov_controller=None):
-        """
-        Apply Markov-based reinforcement learning ventilation strategy.
-        
-        This is a simplified implementation - the actual implementation will come from
-        your MarkovController when integrated in the Simulation class.
-        
-        Args:
-            sensor_data: Environment sensor readings
-            occupancy_data: Occupancy information
-            time_step_minutes: Simulation time step
-            markov_controller: Optional external Markov controller
-        """
-        # If an external Markov controller is provided, its make_step_decision
-        # method will have already acted on the MockPicoManager.
-        # This method in VentilationSystem primarily handles other strategies
-        # or serves as a fallback/logging point if no external controller is used.
+        """Apply Markov-based reinforcement learning ventilation strategy."""
         if markov_controller:
-            # The decision was already made by markov_controller.make_step_decision()
-            # which updated self.mode and self.speed through MockPicoManager.
-            # We just log the current state set by the Markov controller.
             logger.debug(f"Markov strategy (external controller): Mode={self.mode.value}, Speed={self.speed.value}")
-            return # Do not apply simplified logic if external controller is used.
+            return
         
-        # Simplified/Fallback Markov strategy implementation (if no external controller)
-        # This part should ideally not be reached if the simulation setup is correct.
         logger.warning("Applying simplified internal Markov strategy - external controller not provided or not active.")
         co2 = sensor_data['scd41']['co2']
         occupants = occupancy_data['total_occupants']
@@ -394,19 +346,7 @@ class VentilationSystem:
     
     def _apply_predictive_strategy(self, sensor_data, occupancy_data, time_step_minutes, 
                                   occupancy_analyzer=None):
-        """
-        Apply occupancy prediction-based ventilation strategy.
-        
-        Uses prediction of future occupancy to optimize ventilation timing.
-        
-        Args:
-            sensor_data: Environment sensor readings
-            occupancy_data: Current occupancy information
-            time_step_minutes: Simulation time step
-            occupancy_analyzer: Optional external occupancy analyzer
-        """
-        # This is a placeholder - in the full simulation this would use your
-        # OccupancyPatternAnalyzer for predictions
+        """Apply occupancy prediction-based ventilation strategy."""
         co2 = sensor_data['scd41']['co2']
         occupants = occupancy_data['total_occupants']
         current_hour = self.environment.current_time.hour
@@ -414,20 +354,15 @@ class VentilationSystem:
         
         # Simple predictive logic for demonstration
         if occupants == 0:
-            # If empty, predict when people will return
-            # For demonstration, assume return at 17:00 on weekdays if currently before that
             expected_return = None
             
             if occupancy_analyzer:
                 # Use the real analyzer if provided
                 expected_return = occupancy_analyzer.get_next_expected_return_time(current_time)
             else:
-                # Simple prediction for demonstration
                 if current_time.weekday() < 5 and current_hour < 17:
-                    # Weekday, expecting return after work
                     expected_return = current_time.replace(hour=17, minute=0)
                     
-                    # If it's already past 16:00, return is imminent
                     if current_hour >= 16:
                         expected_return = current_time + timedelta(minutes=60)
             
@@ -435,7 +370,6 @@ class VentilationSystem:
                 # Calculate time until return
                 time_until_return = (expected_return - current_time).total_seconds() / 3600  # hours
                 
-                # If return expected within 1 hour and CO2 is high, pre-ventilate
                 if time_until_return <= 1 and co2 > 1000:
                     if self.mode != VentilationMode.MECHANICAL or self.speed != VentilationSpeed.MEDIUM:
                         self.set_mode(VentilationMode.MECHANICAL)
@@ -444,24 +378,20 @@ class VentilationSystem:
                                    f"{time_until_return:.1f} hours")
                     return
                 
-                # If nobody expected for a while, use minimal ventilation
                 if time_until_return > 3:
                     if co2 > 1200:
-                        # Only ventilate if CO2 is very high
                         if self.mode != VentilationMode.MECHANICAL or self.speed != VentilationSpeed.LOW:
                             self.set_mode(VentilationMode.MECHANICAL)
                             self.set_speed(VentilationSpeed.LOW)
                             logger.debug(f"Predictive strategy: minimal ventilation for "
                                        f"extended vacancy (CO2={co2})")
                     else:
-                        # Otherwise turn off
                         if self.mode != VentilationMode.OFF:
                             self.set_mode(VentilationMode.OFF)
                             logger.debug(f"Predictive strategy: ventilation OFF for "
                                        f"extended vacancy (CO2={co2})")
                     return
             
-            # Default behavior when empty with no prediction
             if co2 > 1100:
                 if self.mode != VentilationMode.MECHANICAL or self.speed != VentilationSpeed.LOW:
                     self.set_mode(VentilationMode.MECHANICAL)
@@ -471,7 +401,6 @@ class VentilationSystem:
                     self.set_mode(VentilationMode.OFF)
         
         else:
-            # When occupied, use CO2 thresholds
             if co2 > 1200:
                 if self.mode != VentilationMode.MECHANICAL or self.speed != VentilationSpeed.MAX:
                     self.set_mode(VentilationMode.MECHANICAL)
@@ -490,23 +419,7 @@ class VentilationSystem:
     
     def update(self, sensor_data, occupancy_data, time_step_minutes, 
               markov_controller=None, occupancy_analyzer=None):
-        """
-        Update ventilation system based on current strategy and conditions.
-        
-        Args:
-            sensor_data: Environment sensor readings
-            occupancy_data: Occupancy information
-            time_step_minutes: Simulation time step
-            markov_controller: Optional external Markov controller
-            occupancy_analyzer: Optional external occupancy analyzer
-            
-        Returns:
-            dict: Current ventilation state
-        """
-        # Apply the selected strategy
-        # Note: If MarkovController is used, it acts directly on self.mode/self.speed
-        # via the MockPicoManager. So, _apply_markov_strategy here mainly logs or
-        # handles the case where the external controller isn't active.
+        """Update ventilation system based on current strategy and conditions."""
         if self.strategy == ControlStrategy.MANUAL:
             self._apply_manual_strategy(sensor_data, occupancy_data, time_step_minutes)
         
@@ -539,12 +452,7 @@ class VentilationSystem:
         return self.get_current_state()
     
     def set_mode(self, mode: VentilationMode):
-        """
-        Set ventilation mode.
-        
-        Args:
-            mode: VentilationMode enum value
-        """
+        """Set ventilation mode."""
         if not isinstance(mode, VentilationMode):
             try:
                 mode = VentilationMode(mode)
@@ -563,12 +471,7 @@ class VentilationSystem:
             logger.info(f"Ventilation mode changed: {old_mode.value} -> {mode.value}")
     
     def set_speed(self, speed: VentilationSpeed):
-        """
-        Set ventilation speed.
-        
-        Args:
-            speed: VentilationSpeed enum value
-        """
+        """Set ventilation speed."""
         if not isinstance(speed, VentilationSpeed):
             try:
                 speed = VentilationSpeed(speed)
@@ -583,12 +486,7 @@ class VentilationSystem:
             logger.info(f"Ventilation speed changed: {old_speed.value} -> {speed.value}")
     
     def set_strategy(self, strategy):
-        """
-        Change the control strategy.
-        
-        Args:
-            strategy: ControlStrategy enum value
-        """
+        """Change the control strategy."""
         if not isinstance(strategy, ControlStrategy):
             if isinstance(strategy, str):
                 strategy = ControlStrategy[strategy.upper()]
@@ -601,12 +499,7 @@ class VentilationSystem:
         logger.info(f"Control strategy changed: {old_strategy.name} -> {strategy.name}")
     
     def get_current_state(self):
-        """
-        Get current ventilation system state.
-        
-        Returns:
-            dict: Current state
-        """
+        """Get current ventilation system state."""
         return {
             'timestamp': self.environment.current_time.isoformat(),
             'mode': self.mode.value,
@@ -617,12 +510,7 @@ class VentilationSystem:
         }
     
     def get_operation_history(self):
-        """
-        Get operational history.
-        
-        Returns:
-            list: Historical operation data
-        """
+        """Get operational history."""
         return self.operation_history
     
     def reset_energy_consumption(self):

@@ -102,17 +102,7 @@ def convert_to_serializable(obj):
         return obj
 
 def calculate_overall_score(results, all_results_list=None):
-    """
-    Calculate overall score for a model based on multiple metrics.
-    Lower score is better.
-    
-    Args:
-        results: Evaluation results dict for the current model.
-        all_results_list: List of all experiment results for normalization.
-        
-    Returns:
-        float: Overall score
-    """
+    """Calculate overall score for a model. Lower score is better."""
     # If no results list provided, use traditional non-normalized calculation
     if all_results_list is None or not all_results_list:
         energy_consumption = results.get('energy_consumption', 0)
@@ -152,10 +142,10 @@ def calculate_overall_score(results, all_results_list=None):
     norm_avg_noise = (current_avg_noise - min_avg_noise) / noise_range if noise_range > 0 else 0
     
     # Weights for different metrics
-    weight_energy = 0.40      # 40% - Energy efficiency
-    weight_avg_co2 = 0.30     # 30% - Air quality
-    weight_avg_noise = 0.20   # 20% - Noise level
-    weight_vent_empty = 0.10  # 10% - Smart operation (don't ventilate empty rooms)
+    weight_energy = 0.40      # Energy efficiency
+    weight_avg_co2 = 0.30     # Air quality
+    weight_avg_noise = 0.20   # Noise level
+    weight_vent_empty = 0.10  # Smart operation
     
     # Calculate final score
     score = (
@@ -222,12 +212,12 @@ def main():
         sim = Simulation(
             output_dir=eval_dir, 
             time_step_minutes=args.time_step,
-            use_pretrained_markov=True  # Use pre-trained model
+            use_pretrained_markov=True
         )
         
         # Set Markov parameters for evaluation mode
-        sim.markov_explore_rate = 0.01  # Very low exploration
-        sim.markov_learning_rate = 0.0  # No learning
+        sim.markov_explore_rate = 0.01
+        sim.markov_learning_rate = 0.0
         
         # Set up evaluation experiment
         experiment = sim.setup_experiment(

@@ -139,7 +139,7 @@ def main():
     total_steps = int((args.duration * 24 * 60) / args.time_step)
     progress_bar = tqdm(total=total_steps, unit="step", desc="Training Markov Model")
 
-    result = sim.run_experiment(experiment, progress_bar=progress_bar) # Pass progress_bar
+    result = sim.run_experiment(experiment, progress_bar=progress_bar)
     
     # Get markov model path
     model_dir = os.path.join(output_dir, "sim_data", "markov")

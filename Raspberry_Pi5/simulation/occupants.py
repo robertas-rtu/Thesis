@@ -20,25 +20,10 @@ class ActivityType(Enum):
     GUEST = auto()  # Someone visiting
 
 class OccupantBehaviorModel:
-    """
-    Models realistic human behavior patterns for ventilation simulation.
-    
-    Features:
-    - Weekday vs weekend schedules
-    - Sleep schedules (23:00-7:00 on weekdays, later on weekends)
-    - Work schedules (8:00-17:00 on weekdays)
-    - Weekend activities (going out, having guests)
-    - Probabilistic behavior
-    """
+    """Models realistic human behavior patterns for ventilation simulation."""
     
     def __init__(self, num_residents=2, start_date=None):
-        """
-        Initialize the occupant behavior model.
-        
-        Args:
-            num_residents: Number of people living in the simulated space
-            start_date: Custom start date (defaults to Jan 1, 2023)
-        """
+        """Initialize the occupant behavior model."""
         self.num_residents = num_residents
         self.current_time = start_date or datetime(2023, 1, 1, 0, 0, 0)
         self.current_occupants = num_residents  # Start with everyone home
@@ -113,14 +98,7 @@ class OccupantBehaviorModel:
             self.occupancy_history = self.occupancy_history[-5000:]
     
     def _record_event(self, event_type, description, resident_idx=None):
-        """
-        Record a notable event in the simulation.
-        
-        Args:
-            event_type: Type of event (e.g., 'sleep', 'wake', 'work')
-            description: Text description of what happened
-            resident_idx: Index of resident involved (if applicable)
-        """
+        """Record a notable event in the simulation."""
         self.event_log.append({
             'timestamp': self.current_time.isoformat(),
             'type': event_type,
@@ -143,16 +121,7 @@ class OccupantBehaviorModel:
         return self.current_time.weekday() < 5  # 0-4 = Monday-Friday
     
     def _add_time_variation(self, base_time, variance_minutes=15):
-        """
-        Add random variation to a schedule time.
-        
-        Args:
-            base_time: Base time object
-            variance_minutes: Maximum variation in minutes
-            
-        Returns:
-            time: Time with added variation
-        """
+        """Add random variation to a schedule time."""
         # Random variation within range
         minutes_variation = random.randint(-variance_minutes, variance_minutes)
         
@@ -214,15 +183,7 @@ class OccupantBehaviorModel:
             logger.info("Weekend plan: Staying home, no guests")
     
     def update(self, time_step_minutes=1):
-        """
-        Update occupancy based on schedules and time progression.
-        
-        Args:
-            time_step_minutes: Time step for the simulation in minutes
-            
-        Returns:
-            dict: Current occupancy information
-        """
+        """Update occupancy based on schedules and time progression."""
         # Track occupancy changes
         old_occupants = self.current_occupants + self.num_guests
         
@@ -393,12 +354,7 @@ class OccupantBehaviorModel:
         return self.get_current_state()
     
     def get_current_state(self):
-        """
-        Get current occupancy state.
-        
-        Returns:
-            dict: Occupancy information
-        """
+        """Get current occupancy state."""
         return {
             'timestamp': self.current_time.isoformat(),
             'residents': self.current_occupants,
@@ -409,30 +365,15 @@ class OccupantBehaviorModel:
         }
     
     def get_occupancy_history(self):
-        """
-        Get occupancy history data.
-        
-        Returns:
-            list: History of occupancy states
-        """
+        """Get occupancy history data."""
         return self.occupancy_history
     
     def get_occupancy_for_room_data(self):
-        """
-        Get occupancy data in format compatible with room data manager.
-        
-        Returns:
-            dict: Room-formatted occupancy data
-        """
+        """Get occupancy data in format compatible with room data manager."""
         return {
             "occupants": self.current_occupants + self.num_guests
         }
     
     def get_event_log(self):
-        """
-        Get log of significant occupancy events.
-        
-        Returns:
-            list: Event log entries
-        """
+        """Get log of significant occupancy events."""
         return self.event_log

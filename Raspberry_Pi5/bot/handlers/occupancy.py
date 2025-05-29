@@ -1,4 +1,3 @@
-# bot/handlers/occupancy.py
 """Occupancy pattern handlers for the bot."""
 import logging
 from datetime import datetime

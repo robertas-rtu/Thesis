@@ -1,4 +1,3 @@
-# bot/handlers/ventilation.py
 """Ventilation control handlers for the bot."""
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,12 +7,10 @@ from bot.menu import create_main_menu, create_back_to_main_menu_keyboard, get_ma
 logger = logging.getLogger(__name__)
 
 def _get_detailed_status_text(pico_manager, controller, data_manager) -> str:
-    """Generate a detailed ventilation status text including sensor readings."""
-    # Get ventilation status
+    """Generate detailed ventilation status."""
     current_status = pico_manager.get_ventilation_status()
     current_speed = pico_manager.get_ventilation_speed()
     
-    # Get controller status
     controller_status = controller.get_status() if controller else {"auto_mode": False}
     auto_mode = controller_status.get("auto_mode", False)
     last_action = controller_status.get("last_action", "None")
@@ -24,7 +21,6 @@ def _get_detailed_status_text(pico_manager, controller, data_manager) -> str:
     status_text += f"Auto Mode: {'Enabled' if auto_mode else 'Disabled'}\n"
     status_text += f"Last Auto Action: {last_action}\n"
     
-    # Night mode status
     if controller and hasattr(controller, 'night_mode_enabled'):
         night_mode_info = controller_status.get("night_mode", {})
         status_text += f"Night Mode: {'Enabled' if night_mode_info.get('enabled', False) else 'Disabled'}"

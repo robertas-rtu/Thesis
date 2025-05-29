@@ -1,4 +1,3 @@
-# bot/handlers/commands.py
 """Command handlers for the Telegram bot."""
 import logging
 import re
@@ -14,7 +13,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
     user_auth = context.application.bot_data["user_auth"]
     
-    # Check if first user
     first_user = user_auth.process_first_user_if_needed(user_id)
     
     if first_user:
@@ -23,7 +21,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         logger.info(f"First user {user_id} registered")
     elif user_auth.is_trusted(user_id):
-        # Menu for trusted users
         reply_markup = create_main_menu()
         await update.message.reply_text(
             get_main_menu_message(user.first_name),
@@ -110,7 +107,6 @@ async def add_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_auth.start_adding_user(user_id)
     
-    # Cancel button
     keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="cancel_add_user")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -159,7 +155,6 @@ async def linkphone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     mac_address = context.args[0].lower()
     
-    # Validate MAC format
     if not re.match(r'^([0-9a-f]{2}[:-]){5}([0-9a-f]{2})$', mac_address):
         await update.message.reply_text("Please enter a valid MAC address (e.g., aa:bb:cc:dd:ee:ff)")
         return
@@ -169,7 +164,6 @@ async def linkphone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Device management is not available.")
         return
     
-    # Find device
     found_device = None
     for mac, device in device_manager.devices.items():
         if mac.lower() == mac_address.lower():
@@ -183,7 +177,6 @@ async def linkphone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Check device type
     if found_device.device_type != "phone":
         await update.message.reply_text(
             f"Device {mac_address} is not a phone (it's a {found_device.device_type}).\n"
@@ -191,7 +184,6 @@ async def linkphone_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Link device
     success = device_manager.link_device_to_telegram_user(mac_address, user_id)
     
     if success:
@@ -224,7 +216,6 @@ async def unlinkphone_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     mac_address = context.args[0].lower()
     
-    # Validate MAC format
     if not re.match(r'^([0-9a-f]{2}[:-]){5}([0-9a-f]{2})$', mac_address):
         await update.message.reply_text("Please enter a valid MAC address (e.g., aa:bb:cc:dd:ee:ff)")
         return
@@ -234,7 +225,6 @@ async def unlinkphone_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("Device management is not available.")
         return
     
-    # Find device
     found_device = None
     for mac, device in device_manager.devices.items():
         if mac.lower() == mac_address.lower():
@@ -249,7 +239,6 @@ async def unlinkphone_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(f"Device {mac_address} is not linked to your account.")
         return
     
-    # Unlink device
     success = device_manager.unlink_device_from_telegram_user(mac_address)
     
     if success:
@@ -282,7 +271,6 @@ async def ping_phone_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     mac_address = context.args[0].lower()
     
-    # Validate MAC format
     if not re.match(r'^([0-9a-f]{2}[:-]){5}([0-9a-f]{2})$', mac_address):
         await update.message.reply_text("Please enter a valid MAC address (e.g., aa:bb:cc:dd:ee:ff)")
         return
@@ -292,7 +280,6 @@ async def ping_phone_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("Device management is not available.")
         return
     
-    # Find device
     found_device = None
     for mac, device in device_manager.devices.items():
         if mac.lower() == mac_address.lower():
@@ -307,7 +294,6 @@ async def ping_phone_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"Device {mac_address} is not linked to your account.")
         return
     
-    # Queue ping task
     telegram_ping_queue = context.application.bot_data.get("telegram_ping_tasks_queue")
     if telegram_ping_queue:
         ping_task = {

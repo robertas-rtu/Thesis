@@ -9,17 +9,8 @@ import time
 logger = logging.getLogger(__name__)
 
 def wake_device(mac_address):
-    """
-    Send a Wake-on-LAN magic packet to wake a device.
-    
-    Args:
-        mac_address: MAC address of device to wake
-        
-    Returns:
-        bool: Success status
-    """
+    """Send a Wake-on-LAN magic packet to wake a device."""
     try:
-        # Format MAC address - ensure proper format for WoL
         mac = mac_address.replace(':', '').replace('-', '').lower()
         mac = ':'.join(mac[i:i+2] for i in range(0, 12, 2))
         
@@ -31,18 +22,8 @@ def wake_device(mac_address):
         return False
 
 def check_device_responds(ip_address, timeout=3):
-    """
-    Check if a device responds to ping after wake-up attempt.
-    
-    Args:
-        ip_address: IP address to ping
-        timeout: Timeout in seconds
-        
-    Returns:
-        bool: Whether device responded
-    """
+    """Check if a device responds to ping after wake-up attempt."""
     try:
-        # Try ping
         result = subprocess.run(
             ["ping", "-c", "1", "-W", str(timeout), ip_address],
             stdout=subprocess.PIPE,
@@ -58,17 +39,7 @@ def check_device_responds(ip_address, timeout=3):
         return False
 
 def wake_and_check(mac_address, ip_address, max_attempts=2):
-    """
-    Wake a device and check if it responds.
-    
-    Args:
-        mac_address: MAC address of device to wake
-        ip_address: IP address to check after waking
-        max_attempts: Maximum number of wake attempts
-        
-    Returns:
-        bool: Whether device was successfully woken
-    """
+    """Wake a device and check if it responds."""
     # Check if already responding
     if check_device_responds(ip_address):
         logger.debug(f"Device {ip_address} already responding")
@@ -78,11 +49,9 @@ def wake_and_check(mac_address, ip_address, max_attempts=2):
     for attempt in range(max_attempts):
         logger.debug(f"Wake attempt {attempt+1}/{max_attempts} for {mac_address}")
         
-        # Send magic packet
         wake_device(mac_address)
         
-        # Wait for device to wake up
-        for i in range(3):  # Check a few times over 3 seconds
+        for i in range(3):
             time.sleep(1)
             if check_device_responds(ip_address):
                 logger.info(f"Successfully woke device {mac_address} ({ip_address})")

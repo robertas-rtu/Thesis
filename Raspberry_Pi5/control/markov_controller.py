@@ -1,5 +1,5 @@
 # control/markov_controller.py
-"""Markov Decision Process based ventilation controller."""
+"""MDP-based controller for ventilation."""
 import os
 import json
 import logging
@@ -12,31 +12,26 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 class CO2Level(Enum):
-    """CO₂ concentration categories."""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
 
 class TemperatureLevel(Enum):
-    """Indoor temperature categories."""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
 
 class TimeOfDay(Enum):
-    """Time of day periods."""
     MORNING = "morning"  # 5:00-12:00
     DAY = "day"          # 12:00-18:00
     EVENING = "evening"  # 18:00-22:00
     NIGHT = "night"      # 22:00-5:00
 
 class Occupancy(Enum):
-    """Room occupancy levels."""
     EMPTY = "empty"      # No people
     OCCUPIED = "occupied"  # At least one person
 
 class Action(Enum):
-    """Possible ventilation commands."""
     TURN_OFF = "off"
     TURN_ON_LOW = "low"
     TURN_ON_MEDIUM = "medium"
@@ -44,28 +39,13 @@ class Action(Enum):
 
 
 class MarkovController:
-    """
-    Uses a Markov Decision Process to choose ventilation settings.
-    Balances air‐quality rewards and energy costs under varying states.
-    """
+    """MDP controller for adaptive ventilation."""
 
     MIN_EXPLORATION_RATE = 0.01
     MAX_EXPLORATION_RATE = 0.5
     CRITICAL_CO2_LEVEL = 1600  # ppm - Critical CO2 threshold for night mode override
     
     def __init__(self, data_manager, pico_manager, preference_manager=None, model_dir="data/markov", scan_interval=60, occupancy_analyzer=None, enable_exploration=True):
-        """
-        Initialize the Markov controller.
-        
-        Args:
-            data_manager: Provides latest sensor readings.
-            pico_manager: Interface to ventilation hardware.
-            preference_manager: Manages user comfort preferences.
-            model_dir: Path to store model files.
-            scan_interval: Poll interval (seconds).
-            occupancy_analyzer: Predicts occupancy patterns if available.
-            enable_exploration: Whether to enable random actions for exploration.
-        """
         self.data_manager = data_manager
         self.pico_manager = pico_manager
         self.preference_manager = preference_manager  # Store preference manager
@@ -76,29 +56,23 @@ class MarkovController:
         self.current_sim_time = None  # Added for simulation support
         os.makedirs(model_dir, exist_ok=True)
         
-        # Add tracking for emergency night ventilation events
         self.night_emergency_activations = []
         
-        # Control thread
         self.running = False
         self.thread = None
         
-        # MDP model file
         self.model_file = os.path.join(model_dir, "markov_model.json")
         
-        # Default CO2 thresholds (will be updated dynamically)
         self.co2_thresholds = {
             "low_max": 800,    # Upper bound for LOW
             "medium_max": 1200  # Upper bound for MEDIUM
         }
         
-        # Default temperature thresholds (will be updated dynamically)
         self.temp_thresholds = {
             "low_max": 20,     # Upper bound for LOW
             "medium_max": 24    # Upper bound for MEDIUM
         }
         
-        # Default thresholds for empty home (more energy-saving)
         self.default_empty_home_co2_thresholds = {
             "low_max": 850,
             "medium_max": 1300
@@ -109,7 +83,6 @@ class MarkovController:
             "medium_max": 26
         }
         
-        # Very energy-saving thresholds for long absence
         self.VERY_LOW_ENERGY_THRESHOLDS_CO2 = {
             "low_max": 900,
             "medium_max": 1400
@@ -120,7 +93,6 @@ class MarkovController:
             "medium_max": 27
         }
         
-        # Thresholds for preparing for return
         self.PREPARE_FOR_RETURN_THRESHOLDS_CO2 = {
             "low_max": 750,
             "medium_max": 1100
@@ -131,47 +103,37 @@ class MarkovController:
             "medium_max": 25
         }
         
-        # State tracking
         self.current_state = None
         self.last_action = None
         self.last_action_time = None
         self.min_action_interval = 240  # Min time between action changes (seconds)
         
-        # Control state
         self.auto_mode = True
         
-        # Q-learning parameters
-        self.learning_rate = 0.2  # Alpha - initial learning rate (0.01-0.5 recommended)
-        self.discount_factor = 0.95  # Gamma - future reward discount (0.9-0.99 recommended)
-        self.exploration_rate = 0.8  # Epsilon - exploration rate (0.1-1.0 recommended)
+        self.learning_rate = 0.2
+        self.discount_factor = 0.95
+        self.exploration_rate = 0.8
         
-        # Set exploration rate based on enable_exploration flag
         if not enable_exploration:
             self.exploration_rate = self.MIN_EXPLORATION_RATE
         
-        # Decay parameters for Q-learning
-        self.epsilon_decay = 0.99975  # Rate at which exploration decreases (0.9-0.999 recommended)
-        self.min_epsilon = 0.1  # Minimum exploration rate (0.01-0.1 recommended)
-        self.alpha_decay = 0.99  # Learning rate decay (0.9-0.999 recommended)
-        self.min_alpha = 0.01  # Minimum learning rate (0.01-0.1 recommended)
+        self.epsilon_decay = 0.99975
+        self.min_epsilon = 0.1
+        self.alpha_decay = 0.99
+        self.min_alpha = 0.01
         
-        # Night mode settings
         self.night_mode_enabled = True
         self.night_mode_start_hour = 23
         self.night_mode_end_hour = 7
         
-        # Initialize with -1 to ensure first update is logged
-        self.last_applied_occupants = -1 # Initialize with a value that won't match any real occupancy
+        self.last_applied_occupants = -1
         
-        # Load night mode settings from file
         self._load_night_mode_settings()
         
-        # Initialize Q-values and try to load from file
         self.q_values = {}
         self.load_q_values(self.model_file)
     
     def _load_night_mode_settings(self):
-        """Retrieve night‐mode configuration from JSON or use defaults."""
         night_settings_file = os.path.join(self.model_dir, "night_mode_settings.json")
         try:
             if os.path.exists(night_settings_file):
@@ -185,7 +147,6 @@ class MarkovController:
             logger.error(f"Error loading night mode settings: {e}")
     
     def _save_night_mode_settings(self):
-        """Persist night‐mode configuration to JSON."""
         night_settings_file = os.path.join(self.model_dir, "night_mode_settings.json")
         try:
             settings = {
@@ -200,15 +161,6 @@ class MarkovController:
             logger.error(f"Error saving night mode settings: {e}")
     
     def save_q_values(self, filepath):
-        """
-        Save the Q-values dictionary to a JSON file.
-        
-        Args:
-            filepath: Path where the Q-values will be saved
-            
-        Returns:
-            bool: Success indicator
-        """
         try:
             # Ensure the directory exists
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -224,15 +176,6 @@ class MarkovController:
             return False
     
     def load_q_values(self, filepath):
-        """
-        Load Q-values from a JSON file.
-        
-        Args:
-            filepath: Path to the JSON file containing Q-values
-            
-        Returns:
-            bool: Success indicator
-        """
         if not os.path.exists(filepath):
             logger.info(f"Q-values file not found at {filepath}. Starting with empty table.")
             return False
@@ -254,7 +197,6 @@ class MarkovController:
             return False
     
     def _is_night_mode_active(self):
-        """Check if night mode is currently active."""
         if not self.night_mode_enabled:
             return False
         
@@ -269,19 +211,9 @@ class MarkovController:
             return self.night_mode_start_hour <= current_hour < self.night_mode_end_hour
     
     def _create_state_key(self, co2_level, temp_level, occupancy, time_of_day):
-        """Create a unique key for a state."""
         return f"{co2_level}_{temp_level}_{occupancy}_{time_of_day}"
     
     def _parse_state_key(self, state_key_str: str) -> dict:
-        """
-        Parse a state key string into its components.
-        
-        Args:
-            state_key_str: State key string in format "co2_level_temp_level_occupancy_timeofday"
-        
-        Returns:
-            dict: Dictionary with state components
-        """
         parts = state_key_str.split('_')
         if len(parts) < 4:
             logger.warning(f"Invalid state key format: {state_key_str}")
@@ -295,16 +227,6 @@ class MarkovController:
         }
     
     def _get_q_value(self, state_key, action):
-        """
-        Safely retrieve the Q-value for a state-action pair.
-        
-        Args:
-            state_key: State identifier
-            action: Action identifier
-            
-        Returns:
-            float: Q-value for the state-action pair (0.0 if not found)
-        """
         if state_key not in self.q_values:
             return 0.0
         
@@ -321,15 +243,6 @@ class MarkovController:
         return 0.0
     
     def _get_max_q_value(self, state_key):
-        """
-        Find the maximum Q-value across all possible actions for a state.
-        
-        Args:
-            state_key: State identifier
-            
-        Returns:
-            float: Maximum Q-value for the state (0.0 if state is unknown)
-        """
         if state_key not in self.q_values or not self.q_values[state_key]:
             return 0.0
         
@@ -341,7 +254,6 @@ class MarkovController:
 
     
     def start(self):
-        """Start the Markov controller."""
         # If in simulation mode, don't start the thread
         if self.current_sim_time is not None:
             logger.warning("Markov controller is in simulation mode, not starting control thread")
@@ -358,12 +270,10 @@ class MarkovController:
         return True
     
     def stop(self):
-        """Stop the Markov controller."""
         self.running = False
         logger.info("Stopped Markov controller")
     
     def _control_loop(self):
-        """Main control loop for Markov controller."""
         while self.running:
             try:
                 # Skip if auto mode is disabled
@@ -460,12 +370,6 @@ class MarkovController:
                 time.sleep(self.scan_interval)
     
     def make_step_decision(self, current_sim_time: datetime):
-        """
-        Execute one cycle of decision-making for simulation step.
-        
-        Args:
-            current_sim_time: The simulation's current time
-        """
         try:
             # Store simulation time
             self.current_sim_time = current_sim_time
@@ -645,15 +549,6 @@ class MarkovController:
         return reward
 
     def _get_current_target_thresholds(self, occupants: int) -> tuple[dict, dict]:
-        """
-        Get current target thresholds based on occupancy level.
-        
-        Args:
-            occupants: Number of people currently in the room
-        
-        Returns:
-            tuple: (active_co2_thresholds, active_temp_thresholds)
-        """
         if occupants == 0:
             # Empty home - use adaptive thresholds based on pattern analysis
             if self.occupancy_analyzer:
@@ -724,12 +619,6 @@ class MarkovController:
         return active_co2_thr, active_temp_thr
     
     def _update_thresholds_for_occupancy(self, occupants):
-        """
-        Adjust controller thresholds in place when occupancy changes.
-
-        Args:
-            occupants: Number of people currently in the room
-        """
         if self.preference_manager is None:
             logger.warning("No preference manager available, using default thresholds")
             return
@@ -803,12 +692,6 @@ class MarkovController:
                 logger.warning("Falling back to default thresholds")
 
     def _evaluate_state(self):
-        """
-        Determine current state based on sensor data.
-        
-        Returns:
-            str: State key or None if state cannot be determined
-        """
         try:
             # Get current occupancy
             occupants = self.data_manager.latest_data["room"]["occupants"]
@@ -867,12 +750,6 @@ class MarkovController:
             return None
     
     def _decide_action(self):
-        """
-        Decide what action to take based on the current state using epsilon-greedy policy.
-        
-        Returns:
-            str: Action key
-        """
         if not self.current_state:
             logger.warning("Current state is None, defaulting to TURN_OFF")
             return Action.TURN_OFF.value
@@ -935,15 +812,6 @@ class MarkovController:
         return best_action
     
     def _execute_action(self, action):
-        """
-        Send command to ventilation hardware if it differs from current state.
-
-        Args:
-            action: Target action key.
-
-        Returns:
-            bool: True if command succeeded or was already set.
-        """
         current_status = self.pico_manager.get_ventilation_status()
         current_speed = self.pico_manager.get_ventilation_speed()
         
@@ -965,15 +833,6 @@ class MarkovController:
         return success
     
     def _update_q_value(self, state_key, action, reward, next_state_key):
-        """
-        Update Q-value for a state-action pair using the Q-learning formula.
-        
-        Args:
-            state_key: Current state
-            action: Action taken
-            reward: Reward received
-            next_state_key: Resulting state
-        """
         # Get current Q-value
         current_q = self._get_q_value(state_key, action)
         
@@ -1004,13 +863,11 @@ class MarkovController:
             self.save_q_values(self.model_file)
     
     def set_auto_mode(self, enabled):
-        """Enable or disable automatic control."""
         self.auto_mode = enabled
         logger.info(f"Automatic control {'enabled' if enabled else 'disabled'}")
         return True
     
     def set_night_mode(self, enabled, start_hour=None, end_hour=None):
-        """Configure night mode settings."""
         self.night_mode_enabled = enabled
         if start_hour is not None:
             self.night_mode_start_hour = start_hour
@@ -1022,7 +879,6 @@ class MarkovController:
         return True
     
     def get_status(self):
-        """Get controller status information."""
         # Get current occupancy for status report
         occupants = self.data_manager.latest_data["room"]["occupants"]
         
@@ -1051,15 +907,6 @@ class MarkovController:
     
     def set_thresholds(self, co2_low_max=None, co2_medium_max=None,
                        temp_low_max=None, temp_medium_max=None):
-        """
-        Update manual CO₂ and temperature threshold overrides.
-
-        Args:
-            co2_low_max: Upper bound for CO₂ LOW category.
-            co2_medium_max: Upper bound for CO₂ MEDIUM category.
-            temp_low_max: Upper bound for temperature LOW category.
-            temp_medium_max: Upper bound for temperature MEDIUM category.
-        """
         if co2_low_max is not None:
             self.co2_thresholds["low_max"] = co2_low_max
         if co2_medium_max is not None:

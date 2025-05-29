@@ -1,6 +1,5 @@
 # control/ventilation_controller.py
-"""Simple automatic ventilation controller.
-Mainly used for manual testing and debugging."""
+"""Simple threshold-based ventilation controller."""
 import logging
 import threading
 import time
@@ -11,58 +10,42 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class VentilationController:
-    """Controller for automatic ventilation based on sensor data and presence."""
     
     def __init__(self, data_manager, pico_manager, scan_interval=60):
-        """
-        Initialize the ventilation controller.
-        
-        Args:
-            data_manager: Data manager for accessing sensor readings
-            pico_manager: Interface for controlling ventilation hardware
-            scan_interval: Frequency of condition checks in seconds
-        """
         self.data_manager = data_manager
         self.pico_manager = pico_manager
         self.scan_interval = scan_interval
         
-        # Control thread
         self.running = False
         self.thread = None
         
-        # CO2 thresholds in ppm
         self.co2_thresholds = {
-            "low": 800,     # Good air quality
-            "medium": 1000, # Acceptable air quality
-            "high": 1200    # Poor air quality
+            "low": 800,
+            "medium": 1000,
+            "high": 1200
         }
         
-        # Temperature thresholds in °C
         self.temp_thresholds = {
-            "low": 18,     # Too cold
-            "medium": 20,   # Cool
-            "high": 25      # Too warm
+            "low": 18,
+            "medium": 20,
+            "high": 25
         }
         
-        # Control state
         self.auto_mode = True
         self.last_action_time = None
         self.min_ventilation_time = 300  # Minimum ventilation runtime in seconds
         self.min_off_time = 600  # Minimum time between ventilation cycles in seconds
         
-        # Night mode settings
         self.night_mode_enabled = True
         self.night_mode_start_hour = 23
         self.night_mode_end_hour = 7
         
-        # Persistence
         self.settings_dir = "data/ventilation"
         os.makedirs(self.settings_dir, exist_ok=True)
         
         self._load_night_mode_settings()
     
     def _load_night_mode_settings(self):
-        """Load night mode settings from persistent storage."""
         night_settings_file = os.path.join(self.settings_dir, "night_mode_settings.json")
         try:
             if os.path.exists(night_settings_file):
@@ -76,7 +59,6 @@ class VentilationController:
             logger.error(f"Error loading night mode settings: {e}")
     
     def _save_night_mode_settings(self):
-        """Save night mode settings to persistent storage."""
         night_settings_file = os.path.join(self.settings_dir, "night_mode_settings.json")
         try:
             settings = {
@@ -91,12 +73,6 @@ class VentilationController:
             logger.error(f"Error saving night mode settings: {e}")
     
     def _is_night_mode_active(self):
-        """
-        Determine if night mode is currently active based on time of day.
-        
-        Returns:
-            bool: True if night mode is active
-        """
         if not self.night_mode_enabled:
             return False
         
@@ -110,12 +86,6 @@ class VentilationController:
             return self.night_mode_start_hour <= current_hour < self.night_mode_end_hour
     
     def start(self):
-        """
-        Start the ventilation control thread if not already running.
-        
-        Returns:
-            bool: True if started successfully
-        """
         if self.thread is not None and self.thread.is_alive():
             logger.warning("Ventilation controller already running")
             return False
@@ -127,15 +97,10 @@ class VentilationController:
         return True
     
     def stop(self):
-        """Stop the ventilation control thread."""
         self.running = False
         logger.info("Stopped ventilation controller")
     
     def _control_loop(self):
-        """
-        Main control loop that periodically evaluates air quality 
-        and adjusts ventilation accordingly.
-        """
         while self.running:
             try:
                 if not self.auto_mode:
@@ -165,12 +130,6 @@ class VentilationController:
                 time.sleep(self.scan_interval)
     
     def _get_current_data(self):
-        """
-        Retrieve current sensor readings and system state.
-        
-        Returns:
-            dict: Current environmental data and system state
-        """
         data = {}
         
         # Environmental readings
@@ -192,18 +151,6 @@ class VentilationController:
         return data
     
     def _determine_action(self, data):
-        """
-        Determine ventilation action based on current conditions.
-        
-        Args:
-            data: Current sensor and system data
-            
-        Returns:
-            tuple: (action, speed, reason)
-                action: 'on', 'off', or 'maintain'
-                speed: 'low', 'medium', 'max', or None
-                reason: Explanation for the decision
-        """
         action = "maintain"
         speed = data["ventilation_speed"]
         reason = "No change needed"
@@ -239,13 +186,6 @@ class VentilationController:
             return "off", None, f"Low CO2 level: {co2} ppm < {self.co2_thresholds['low'] + co2_threshold_adjustment} ppm"
     
     def _turn_ventilation_on(self, speed, reason):
-        """
-        Activate ventilation at specified speed if not already running.
-        
-        Args:
-            speed: Desired ventilation speed
-            reason: Justification for the action
-        """
         current_status = self.pico_manager.get_ventilation_status()
         current_speed = self.pico_manager.get_ventilation_speed()
         
@@ -261,12 +201,6 @@ class VentilationController:
             logger.error(f"Failed to turn ventilation on at {speed} speed")
     
     def _turn_ventilation_off(self, reason):
-        """
-        Deactivate ventilation if currently running.
-        
-        Args:
-            reason: Justification for the action
-        """
         current_status = self.pico_manager.get_ventilation_status()
         
         if not current_status:
@@ -281,31 +215,11 @@ class VentilationController:
             logger.error("Failed to turn ventilation off")
     
     def set_auto_mode(self, enabled):
-        """
-        Toggle automatic ventilation control.
-        
-        Args:
-            enabled: True to enable auto mode, False to disable
-            
-        Returns:
-            bool: Success indicator
-        """
         self.auto_mode = enabled
         logger.info(f"Automatic control {'enabled' if enabled else 'disabled'}")
         return True
     
     def set_night_mode(self, enabled, start_hour=None, end_hour=None):
-        """
-        Configure night mode operation parameters.
-        
-        Args:
-            enabled: True to enable night mode
-            start_hour: Hour of day to begin night mode (0-23)
-            end_hour: Hour of day to end night mode (0-23)
-            
-        Returns:
-            bool: Success indicator
-        """
         self.night_mode_enabled = enabled
         if start_hour is not None:
             self.night_mode_start_hour = start_hour
@@ -317,12 +231,6 @@ class VentilationController:
         return True
     
     def get_status(self):
-        """
-        Retrieve current controller status and configuration.
-        
-        Returns:
-            dict: Controller status information
-        """
         return {
             "auto_mode": self.auto_mode,
             "co2_thresholds": self.co2_thresholds,
@@ -339,17 +247,6 @@ class VentilationController:
         }
     
     def set_thresholds(self, co2_low=None, co2_medium=None, co2_high=None):
-        """
-        Update CO2 threshold levels for ventilation decisions.
-        
-        Args:
-            co2_low: PPM level for good air quality
-            co2_medium: PPM level for acceptable air quality
-            co2_high: PPM level for poor air quality
-            
-        Returns:
-            bool: Success indicator
-        """
         if co2_low is not None:
             self.co2_thresholds["low"] = co2_low
         if co2_medium is not None:

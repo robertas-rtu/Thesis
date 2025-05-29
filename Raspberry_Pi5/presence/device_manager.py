@@ -16,14 +16,7 @@ class DeviceManager:
     """Manages network device discovery, tracking, and occupancy inference."""
     
     def __init__(self, data_dir="data/presence", notification_callback=None, telegram_ping_queue=None):
-        """
-        Initialize the device tracking system.
-        
-        Args:
-            data_dir: Storage location for device persistence
-            notification_callback: Hook for device discovery notifications
-            telegram_ping_queue: Queue for interactive device verification
-        """
+        """Initialize the device tracking system."""
         self.data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
         self.devices_file = os.path.join(data_dir, "devices.json")
@@ -36,9 +29,9 @@ class DeviceManager:
         self._lock = threading.Lock()
         
         # System parameters
-        self.phone_offline_threshold = 5  # How many scans before marking phone offline
-        self.sleep_hours = (23, 7)  # Between 11 PM and 7 AM
-        self.TELEGRAM_PING_COOLDOWN_MINUTES = 10  # Minimum interval between Telegram pings
+        self.phone_offline_threshold = 5
+        self.sleep_hours = (23, 7)
+        self.TELEGRAM_PING_COOLDOWN_MINUTES = 10
         
         # Store last scan results for reference
         self._last_scan_results = []
@@ -72,14 +65,7 @@ class DeviceManager:
             return False
 
     def _update_active_hours(self, device, current_time, is_online):
-        """
-        Update the typical active hours for a device.
-        
-        Args:
-            device: Device object
-            current_time: Current time
-            is_online: Whether device is currently online
-        """
+        """Update the typical active hours for a device."""
         # Only track active hours for devices that are online
         if not is_online:
             return
@@ -122,10 +108,7 @@ class DeviceManager:
         logger.debug(f"Updated typical active hours for {device.name}: {device.typical_active_hours}")
 
     def update_device_status(self, mac, is_online, current_time=None):
-        """
-        Update device status based on network scan with enhanced detection.
-        Optimized to minimize lock time.
-        """
+        """Update device status based on network scan."""
         mac_lower = mac.lower()
         now = current_time or datetime.now()
         
@@ -142,7 +125,7 @@ class DeviceManager:
             # Find IP address for this MAC from recent scan
             for device_info in self._last_scan_results:
                 if len(device_info) >= 2 and device_info[0].lower() == mac_lower:
-                    device.last_ip = device_info[1]  # Store IP address
+                    device.last_ip = device_info[1]
                     break
             
             # Device is online - mark active and reset offline counter
@@ -199,10 +182,8 @@ class DeviceManager:
                             self.telegram_ping_queue.put(ping_task)
                             device.last_telegram_ping_request_time = now.isoformat()
                             device.is_pending_telegram_ping = True
-                            # Save devices in background
                             threading.Thread(target=self._save_devices, daemon=True).start()
                             logger.info(f"Queued first Telegram ping for {device.name} (MAC: {device.mac})")
-                            # Return immediately to wait for ping result
                             return False
                         except Exception as e:
                             logger.error(f"Failed to queue Telegram ping: {e}")
@@ -220,30 +201,16 @@ class DeviceManager:
             status_changed = True
             logger.info(f"Device {mac} ({device.name}) is now inactive after {device.offline_count} missed scans")
         
-        # Save on status change in background
         if status_changed:
             threading.Thread(target=self._save_devices, daemon=True).start()
             
-            # Update typical active hours on status change
             if device.device_type == DeviceType.PHONE.value:
                 self._update_active_hours(device, now, is_online)
         
         return status_changed
 
     def process_telegram_ping_result(self, mac: str, detected_after_ping: bool):
-        """
-        Handle the outcome of an interactive device verification.
-        
-        When network scans are inconclusive, the system can request
-        device owners to confirm their presence via Telegram.
-        
-        Args:
-            mac: Device identifier
-            detected_after_ping: Whether verification succeeded
-            
-        Returns:
-            bool: Whether device status changed
-        """
+        """Handle the outcome of an interactive device verification."""
         with self._lock:
             mac = mac.lower()
             if mac not in self.devices:
@@ -281,20 +248,11 @@ class DeviceManager:
         return False
 
     def check_arp_table(self, mac):
-        """
-        Check if device appears in system ARP table as fallback detection.
-        
-        Args:
-            mac: Device identifier
-            
-        Returns:
-            bool: Whether device is in ARP table
-        """
+        """Check if device appears in system ARP table as fallback detection."""
         try:
-            # Use the check_device_presence function but only with arp_table method
             is_present, method, _ = check_device_presence(
                 mac, 
-                None,  # IP not needed for ARP table check
+                None,
                 methods=['arp_table']
             )
             return is_present
@@ -303,24 +261,9 @@ class DeviceManager:
             return False
 
     def _get_offline_threshold(self, device, current_time):
-        """
-        Determine how many missed scans to tolerate before marking device offline.
-        
-        Applies context-aware thresholds based on:
-        - Device type (phones get special treatment)
-        - Time of day (higher thresholds during sleep hours)
-        - Usage patterns (higher thresholds during typical active hours)
-        
-        Args:
-            device: Target device
-            current_time: Reference timestamp
-            
-        Returns:
-            int: Number of missed scans to tolerate
-        """
-        # Only special handling for phones
+        """Determine how many missed scans to tolerate before marking device offline."""
         if device.device_type != DeviceType.PHONE.value:
-            return 3  # Default threshold for non-phones
+            return 3
         
         # Check if current time is within sleep hours
         hour = current_time.hour
@@ -332,9 +275,8 @@ class DeviceManager:
         else:
             is_sleep_time = sleep_start <= hour < sleep_end
         
-        # Higher threshold during sleep hours
         if is_sleep_time:
-            return 10  # More tolerant during sleep hours (increased from 8)
+            return 10
         
         # Check if device is typically active at this hour
         is_typically_active = False
@@ -344,28 +286,13 @@ class DeviceManager:
                 is_typically_active = True
                 break
         
-        # More tolerant if device is typically active now
         if is_typically_active:
-            return 6  # Increased from 4
+            return 6
             
-        # Default threshold for phones during non-sleep hours
         return self.phone_offline_threshold
     
     def is_probably_present(self, device, current_time=None):
-        """
-        Infer likely presence despite device being offline.
-        
-        Uses multiple heuristics:
-        - For phones: Considers typical usage hours and recent connection history
-        - For other devices: Uses simpler time-based threshold
-        
-        Args:
-            device: Target device
-            current_time: Reference timestamp
-            
-        Returns:
-            bool: Likelihood of actual presence
-        """
+        """Infer likely presence despite device being offline."""
         now = current_time or datetime.now()
         
         # Case 1: Device is currently active
@@ -426,21 +353,7 @@ class DeviceManager:
 
     def add_device(self, mac, name=None, owner=None, device_type="unknown", vendor=None, 
                   count_for_presence=False, confirmation_status="unconfirmed"):
-        """
-        Register a new network device or update an existing one.
-        
-        Args:
-            mac: Unique device identifier
-            name: Human-readable device name
-            owner: Person associated with the device
-            device_type: Classification for presence inference
-            vendor: Manufacturer information
-            count_for_presence: Whether to include in occupancy calculation
-            confirmation_status: User verification state
-            
-        Returns:
-            bool: Success indicator
-        """
+        """Register a new network device or update an existing one."""
         with self._lock:
             mac = mac.lower()
             
@@ -488,16 +401,7 @@ class DeviceManager:
         return True
 
     def link_device_to_telegram_user(self, mac: str, telegram_user_id: int) -> bool:
-        """
-        Associate device with Telegram user for interactive verification.
-        
-        Args:
-            mac: Device identifier
-            telegram_user_id: Telegram user identifier
-            
-        Returns:
-            bool: Success indicator
-        """
+        """Associate device with Telegram user for interactive verification."""
         with self._lock:
             mac = mac.lower()
             if mac not in self.devices:
@@ -513,15 +417,7 @@ class DeviceManager:
         return True
 
     def unlink_device_from_telegram_user(self, mac: str) -> bool:
-        """
-        Remove Telegram association from device.
-        
-        Args:
-            mac: Device identifier
-            
-        Returns:
-            bool: Success indicator
-        """
+        """Remove Telegram association from device."""
         with self._lock:
             mac = mac.lower()
             if mac not in self.devices:
@@ -541,17 +437,7 @@ class DeviceManager:
         self.notification_callback = callback
 
     def calculate_people_present(self):
-        """
-        Estimate the number of people currently present in the monitored space.
-        
-        Uses a multi-stage algorithm:
-        1. Count active/probable phones with owners (1 person per owner)
-        2. Verify inactive phones with ping for improved reliability
-        3. Count active/probable phones without owners (1 person per device)
-        
-        Returns:
-            int: Estimated occupancy count
-        """
+        """Estimate the number of people currently present in the monitored space."""
         with self._lock:
             people_count = 0
             counted_owners = set()

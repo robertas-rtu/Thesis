@@ -41,11 +41,7 @@ from presence.occupancy_history_manager import OccupancyHistoryManager
 from predictive.occupancy_pattern_analyzer import OccupancyPatternAnalyzer
 
 def run_bot(pico_manager=None, controller=None, data_manager=None, sleep_analyzer=None, preference_manager=None, occupancy_analyzer=None, device_manager=None, telegram_ping_tasks_queue=None):
-    """
-    Run the Telegram bot in a separate process.
-    
-    Passes all system components to the bot to enable control and monitoring.
-    """
+    """Run the Telegram bot in a separate process."""
     try:
         # Import bot main
         from bot.main import main as bot_main
@@ -57,17 +53,7 @@ def run_bot(pico_manager=None, controller=None, data_manager=None, sleep_analyze
         # Don't exit, just log the error and continue
 
 def main():
-    """
-    Main application entry point.
-    
-    Initializes and orchestrates all system components, including:
-    - Sensors and data collection
-    - Presence detection
-    - Ventilation control
-    - Adaptive sleep pattern analysis
-    - User preferences
-    - Telegram bot interface
-    """
+    """Main application entry point."""
     try:
         logger.info("Starting ventilation system")
         
@@ -115,7 +101,7 @@ def main():
             device_manager=device_manager,
             data_manager=data_manager,
             occupancy_history_manager=occupancy_history_manager,
-            scan_interval=600  # Changed from 300 to 600 (10 minutes) to prevent frequent scans
+            scan_interval=600  # 10 minutes to prevent frequent scans
         )
 
         # Start presence controller
@@ -159,7 +145,7 @@ def main():
                 target=run_bot, 
                 args=(pico_manager, markov_controller, data_manager, sleep_analyzer, preference_manager, occupancy_pattern_analyzer, device_manager, telegram_ping_tasks_queue),
                 daemon=True,
-                name="TelegramBot"  # Thread name for easier debugging
+                name="TelegramBot"
             )
             bot_thread.start()
             logger.info("Telegram bot started in thread")
@@ -212,7 +198,6 @@ def main():
             # Stop bot thread if it exists
             if bot_thread and bot_thread.is_alive():
                 logger.info("Waiting for bot to stop...")
-                # No direct way to stop bot gracefully, let daemon thread die
         
         return 0
         

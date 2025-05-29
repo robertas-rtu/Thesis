@@ -12,15 +12,7 @@ class PresenceController:
     """Controls the presence detection system."""
     
     def __init__(self, device_manager, data_manager, occupancy_history_manager=None, scan_interval=300):
-        """
-        Initialize the presence controller.
-        
-        Args:
-            device_manager: Registry of tracked network devices
-            data_manager: System data storage interface
-            occupancy_history_manager: Optional component for recording occupancy changes
-            scan_interval: Seconds between network scans
-        """
+        """Initialize the presence controller."""
         self.device_manager = device_manager
         self.data_manager = data_manager
         self.occupancy_history_manager = occupancy_history_manager
@@ -59,12 +51,10 @@ class PresenceController:
                 online_devices = scan_network()
                 logger.debug(f"Network scan completed, found {len(online_devices)} devices")
                 
-                # Process discovered devices - don't log every device to reduce spam
                 self._process_discovered_devices(online_devices)
                 
-                # Update status of all devices - batch operations
                 online_macs = [device[0].lower() for device in online_devices]
-                devices_copy = dict(self.device_manager.devices)  # Create copy to avoid lock conflicts
+                devices_copy = dict(self.device_manager.devices)
                 
                 for mac, device in devices_copy.items():
                     is_online = mac in online_macs
@@ -82,7 +72,6 @@ class PresenceController:
                         new_status = "EMPTY" if people_count == 0 else "OCCUPIED"
                         old_status = "EMPTY" if self.last_occupancy == 0 else "OCCUPIED"
                         
-                        # Only record if status actually changed
                         if new_status != old_status:
                             self.occupancy_history_manager.record_occupancy_change(
                                 new_status, 
@@ -98,22 +87,13 @@ class PresenceController:
             except Exception as e:
                 logger.error(f"Error in presence detection: {e}")
                 
-            # Sleep until next scan - use smaller sleeps to be more responsive to stop
             elapsed = 0
             while elapsed < self.scan_interval and self.running:
                 time.sleep(min(1, self.scan_interval - elapsed))
                 elapsed += 1
             
     def _process_discovered_devices(self, devices):
-        """
-        Register and classify newly discovered network devices.
-        
-        Automatically categorizes devices and configures appropriate
-        presence detection settings based on device characteristics.
-        
-        Args:
-            devices: Device information from network scan [(mac, ip, vendor),...]
-        """
+        """Register and classify newly discovered network devices."""
         for device_info in devices:
             if len(device_info) == 3:
                 mac, ip, vendor = device_info
@@ -122,19 +102,15 @@ class PresenceController:
                 vendor = "Unknown"
                 
             if mac not in self.device_manager.devices:
-                # New device discovered
                 logger.info(f"New device discovered: {mac} ({ip}) - {vendor}")
                 
-                # Determine device type
                 device_type = "unknown"
                 if vendor:
                     from utils.network_scanner import guess_device_type
                     device_type = guess_device_type(mac, vendor)
                 
-                # Use vendor name for device name if available
                 name = vendor if vendor != "Unknown" else f"New-{mac[-5:]}"
                 
-                # Count all phones for presence automatically
                 count_for_presence = (device_type == "phone")
                 
                 self.device_manager.add_device(
@@ -146,22 +122,10 @@ class PresenceController:
                 )
     
     def handle_device_notification(self, action, **kwargs):
-        """
-        Process device-related events from the device manager.
-        
-        Enables integration with notification systems and
-        provides special handling for high-confidence device detections.
-        
-        Args:
-            action: Event type identifier
-            **kwargs: Event-specific parameters
-        """
+        """Process device-related events from the device manager."""
         if action == "new_device":
-            # Here you can add callbacks for various notification systems
-            # like Telegram bot, web UI alerts, etc.
             logger.info(f"New device notification: {kwargs.get('device_name', 'Unknown device')}")
             
-            # Log high confidence phones for easier review
             if (kwargs.get('device_type') == 'phone' and 
                 kwargs.get('confidence', 0) > 0.7):
                 logger.info(f"High confidence phone detected: {kwargs.get('device_name')} "

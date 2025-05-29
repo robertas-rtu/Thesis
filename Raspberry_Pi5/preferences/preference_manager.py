@@ -15,12 +15,7 @@ class PreferenceManager:
     """Manages user comfort preferences and calculates optimal ventilation settings."""
     
     def __init__(self, data_dir: str = "data"):
-        """
-        Initialize preference manager.
-        
-        Args:
-            data_dir: Base directory for storing preference and feedback data
-        """
+        """Initialize preference manager."""
         self.data_dir = data_dir
         self.preference_dir = os.path.join(data_dir, "preferences")
         self.preferences_file = os.path.join(self.preference_dir, "user_preferences.json")
@@ -114,22 +109,8 @@ class PreferenceManager:
         return self.preferences.copy()
     
     def calculate_compromise_preference(self, list_of_user_ids: List[int]) -> CompromisePreference:
-        """
-        Calculate optimal settings that balance multiple users' comfort needs.
-        
-        This uses a multi-step algorithm:
-        1. Find preference range intersections where all users are comfortable
-        2. When no intersection exists, calculate weighted averages based on sensitivity
-        3. Compute an effectiveness score measuring how well needs are balanced
-        
-        Args:
-            list_of_user_ids: Users to consider in the calculation
-            
-        Returns:
-            CompromisePreference: Balanced settings for the group
-        """
+        """Calculate optimal settings that balance multiple users' comfort needs."""
         if not list_of_user_ids:
-            # Return default preferences if no users
             return CompromisePreference(
                 user_count=0,
                 temp_min=20.0,
@@ -147,7 +128,6 @@ class PreferenceManager:
                 valid_preferences.append(self.preferences[user_id])
         
         if not valid_preferences:
-            # Return default if no valid preferences
             return CompromisePreference(
                 user_count=0,
                 temp_min=20.0,
@@ -172,7 +152,6 @@ class PreferenceManager:
             temp_min = temp_intersections[0]
             temp_max = temp_intersections[1]
         else:
-            # No intersection - find weighted average with sensitivity
             temp_min, temp_max = self._calculate_weighted_range(
                 [(p.temp_min, p.temp_max, p.sensitivity_temp) for p in valid_preferences]
             )
@@ -181,7 +160,6 @@ class PreferenceManager:
             humidity_min = humidity_intersections[0]
             humidity_max = humidity_intersections[1]
         else:
-            # No intersection - find weighted average
             humidity_min, humidity_max = self._calculate_weighted_range(
                 [(p.humidity_min, p.humidity_max, p.sensitivity_humidity) for p in valid_preferences]
             )
@@ -209,15 +187,7 @@ class PreferenceManager:
         )
     
     def _find_range_intersection(self, ranges: List[tuple]) -> tuple:
-        """
-        Find overlapping range that satisfies all user preferences.
-        
-        Args:
-            ranges: List of (min, max) value tuples
-            
-        Returns:
-            tuple: Intersection range or None if no overlap
-        """
+        """Find overlapping range that satisfies all user preferences."""
         if not ranges:
             return None
         
@@ -232,15 +202,7 @@ class PreferenceManager:
         return None
     
     def _calculate_weighted_range(self, preferences: List[tuple]) -> tuple:
-        """
-        Calculate weighted range considering user sensitivity preferences.
-        
-        Args:
-            preferences: List of (min, max, sensitivity) tuples
-            
-        Returns:
-            tuple: Calculated (min, max) range
-        """
+        """Calculate weighted range considering user sensitivity preferences."""
         if not preferences:
             return (0, 0)
         
@@ -260,15 +222,7 @@ class PreferenceManager:
         return (weighted_min, weighted_max)
     
     def _calculate_weighted_average(self, values_with_weights: List[tuple]) -> float:
-        """
-        Compute weighted average where values with higher weights have more influence.
-        
-        Args:
-            values_with_weights: List of (value, weight) tuples
-            
-        Returns:
-            float: Weighted average
-        """
+        """Compute weighted average where values with higher weights have more influence."""
         if not values_with_weights:
             return 0
         
@@ -283,21 +237,7 @@ class PreferenceManager:
                                      temp_min: float, temp_max: float,
                                      co2_threshold: int,
                                      humidity_min: float, humidity_max: float) -> float:
-        """
-        Measure how well the compromise satisfies all users' preferences.
-        
-        Lower dissatisfaction scores indicate better compromises. The score is
-        normalized to a 0-1 scale where 1 represents ideal satisfaction.
-        
-        Args:
-            preferences: List of user preference objects
-            temp_min/max: Calculated temperature range
-            co2_threshold: Calculated CO2 threshold
-            humidity_min/max: Calculated humidity range
-            
-        Returns:
-            float: Satisfaction score from 0.0 (poor) to 1.0 (ideal)
-        """
+        """Measure how well the compromise satisfies all users' preferences."""
         if not preferences:
             return 1.0
         
@@ -355,14 +295,7 @@ class PreferenceManager:
         return max(0.0, min(1.0, effectiveness))
     
     def add_feedback(self, user_id: int, feedback_type: str, sensor_data: Dict):
-        """
-        Record user comfort feedback for preference learning and history.
-        
-        Args:
-            user_id: User providing feedback
-            feedback_type: Comfort state (comfortable, too_hot, etc.)
-            sensor_data: Environmental conditions at feedback time
-        """
+        """Record user comfort feedback for preference learning and history."""
         feedback = FeedbackRecord(
             user_id=user_id,
             feedback_type=feedback_type,

@@ -1,4 +1,3 @@
-# bot/handlers/sleep_patterns.py
 """Sleep pattern analysis handlers."""
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -52,7 +51,7 @@ async def sleep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     adjustments = summary.get("recent_adjustments", [])
     adjustments_text = "\n🔄 *Recent Adjustments*\n"
     if adjustments:
-        for adj in adjustments[:3]:  # Show most recent 3
+        for adj in adjustments[:3]:
             type_text = "Sleep time" if adj.get("type") == "start_time" else "Wake time"
             adjustments_text += f"{adj.get('date')}: {type_text} {adj.get('from')} -> {adj.get('to')} based on detection at {adj.get('detected_time')}\n"
     else:

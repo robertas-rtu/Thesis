@@ -1,5 +1,4 @@
-# sensors/scd41_manager.py
-"""SCD41 CO2, temperature and humidity sensor management."""
+# SCD41 CO2, temperature and humidity sensor manager
 import time
 import logging
 from sensirion_i2c_driver import LinuxI2cTransceiver, I2cConnection
@@ -13,7 +12,7 @@ class SCD41Manager:
         self.scd41 = None
         
     def initialize(self):
-        """Initialize the SCD41 sensor."""
+        # Initialize the SCD41 sensor
         try:
             logger.info("Initializing SCD41 sensor...")
             i2c_transceiver = LinuxI2cTransceiver(self.i2c_device)
@@ -39,7 +38,7 @@ class SCD41Manager:
             return False
     
     def read_measurement(self):
-        """Read a measurement from the SCD41 sensor."""
+        # Read a measurement from the SCD41 sensor
         if self.scd41 is None:
             raise Exception("SCD41 sensor not initialized")
         
