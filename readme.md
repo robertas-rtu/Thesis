@@ -1,4 +1,4 @@
-# Smart Ventilation System
+# Adaptive Ventilation System
 
 An intelligent ventilation control system that uses multiple sensors, presence detection, and machine learning to optimize indoor air quality while minimizing energy consumption.
 
