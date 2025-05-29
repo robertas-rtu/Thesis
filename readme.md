@@ -10,6 +10,17 @@ This system consists of:
 - **Telegram Bot**: Remote monitoring and control interface
 - **Machine Learning**: Markov-based predictive control and occupancy pattern analysis
 
+### System Wiring Diagram
+
+![System Wiring Diagram](system_wiring_diagram.png)
+
+The diagram shows the complete hardware setup including:
+- Raspberry Pi 5 as the main controller
+- Raspberry Pi Pico W with connected sensors (SCD41 and BMP280)
+- Servo motor for ventilation control
+- Two cooling fans controlled via relay modules
+- All necessary connections and power distribution
+
 ## Prerequisites
 
 ### Hardware Requirements
